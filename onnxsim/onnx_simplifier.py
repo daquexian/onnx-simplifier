@@ -76,8 +76,8 @@ def generate_rand_input(model):
 
 
 def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
-    const_nodes: List[onnx.NodeProto] = []
-    const_tensors: List[str] = [x.name for x in m.graph.initializer]
+    const_nodes = []
+    const_tensors = [x.name for x in m.graph.initializer]
     const_tensors.extend([node.output[0] for node in m.graph.node if node.op_type == 'Constant'])
 
     for node in m.graph.node:
