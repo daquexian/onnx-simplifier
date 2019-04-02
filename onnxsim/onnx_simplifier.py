@@ -1,8 +1,6 @@
 from collections import OrderedDict
 
-from typing import List, Dict
-
-import argparse
+from typing import List, Dict, Union
 
 import onnx
 import onnx.utils
@@ -167,21 +165,14 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
             assert np.allclose(res_opt[name], res_ori[name])
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('input_model', help='Input ONNX model')
-    parser.add_argument('output_model', help='Output ONNX model')
-    args = parser.parse_args()
-    model_ori = onnx.load(args.input_model)
+def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 5) -> onnx.ModelProto:
+    if type(model_ori) == str:
+        model_ori = onnx.load(model_ori)
 
     model_opt = eliminate_const_nodes(model_ori, get_constant_nodes(model_ori), forward_all(model_ori))
 
     model_opt = postprocess(model_opt)
 
-    check(model_opt, model_ori)
+    check(model_opt, model_ori, check_n)
 
-    onnx.save(model_opt, args.output_model)
-
-
-if __name__ == '__main__':
-    main()
+    return model_opt
