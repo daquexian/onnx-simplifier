@@ -1,8 +1,14 @@
 ## ONNX Simplifier
 
-ONNX is great, but sometimes too complicated.
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/ansicolortags.svg)](https://pypi.python.org/pypi/onnx-simplifier/)
+[![PyPI license](https://img.shields.io/pypi/l/onnx-simplifier.svg)](https://pypi.python.org/pypi/onnx-simplifier/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
-For example, we export the following simple reshape operation to ONNX:
+_ONNX is great, but sometimes too complicated._
+
+### Background
+
+One day I wanted to export the following simple reshape operation to ONNX:
 
 ```python
 import torch
@@ -24,6 +30,7 @@ class ComplicatedReshape(torch.nn.Module):
     def forward(self, x):
         return x.view((x.shape[0], x.shape[1], x.shape[3], x.shape[2]))
 
+
 net = ComplicatedReshape()
 model_name = 'complicated_reshape.onnx'
 dummy_input = torch.randn(2, 3, 4, 5)
@@ -32,20 +39,38 @@ torch.onnx.export(net, dummy_input, model_name, input_names=['input'], output_na
 polish(model_name)
 ```
 
-Dynamic input in [not natively supported](https://github.com/onnx/onnx/issues/654) in ONNX, so what
-we expect is
+Input shape in ONNX is [static](https://github.com/onnx/onnx/issues/654), so what I expected is
 
 ![simple_reshape](imgs/simple_reshape.png)
 
-However, what we get is
+However, I got the following complicated model even though I have polished it:
 
 ![complicated_reshape](imgs/complicated_reshape.png)
 
-And also there are some operations performed on weight, as pointed out in https://github.com/onnx/onnx/issues/1758
-and https://github.com/JDAI-CV/DNNLibrary/issues/26
+Moreover, there are also some operations performed on weight. As pointed out in https://github.com/onnx/onnx/issues/1758
+and https://github.com/JDAI-CV/DNNLibrary/issues/26, they can all be eliminated by offline computation.
+
+### Our solution
 
 This library wants to simplify the ONNX model and remove these redundant operators.
 
-An overall comparison between original model and simplified model:
+Just install it via pip
+
+```
+pip3 install onnx-simplifier
+```
+
+Then
+
+```
+python3 -m onnxsim input_model output_model
+```
+
+### Results
+
+An overall comparison between
+[a complicated model](https://github.com/JDAI-CV/DNNLibrary/issues/17#issuecomment-455934190)
+and its simplified version:
 
 ![Comparison between old model and new model](imgs/comparison.png)
+
