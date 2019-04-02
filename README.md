@@ -35,11 +35,11 @@ polish(model_name)
 Dynamic input in [not natively supported](https://github.com/onnx/onnx/issues/654) in ONNX, so what
 we expect is
 
-![simple_reshape](simple_reshape.png)
+![simple_reshape](imgs/simple_reshape.png)
 
 However, what we get is
 
-![complicated_reshape](complicated_reshape.png)
+![complicated_reshape](imgs/complicated_reshape.png)
 
 And also there are some operations performed on weight, as pointed out in https://github.com/onnx/onnx/issues/1758
 and https://github.com/JDAI-CV/DNNLibrary/issues/26
@@ -48,4 +48,4 @@ This library wants to simplify the ONNX model and remove these redundant operato
 
 An overall comparison between original model and simplified model:
 
-![Comparison between old model and new model](comparison.png)
+![Comparison between old model and new model](imgs/comparison.png)
