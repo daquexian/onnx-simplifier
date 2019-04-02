@@ -18,12 +18,6 @@ import onnx
 import onnx.utils
 
 
-def polish(model_name):
-    model = onnx.load(model_name)
-    model = onnx.utils.polish_model(model)
-    onnx.save(model, model_name)
-
-
 class OnlyReshape(torch.nn.Module):
     def __init__(self):
         super(OnlyReshape, self).__init__()
@@ -36,20 +30,21 @@ net = OnlyReshape()
 model_name = 'only_reshape.onnx'
 dummy_input = torch.randn(2, 3, 4, 5)
 torch.onnx.export(net, dummy_input, model_name, input_names=['input'], output_names=['output'])
-
-polish(model_name)
 ```
 
 Input shape in ONNX is [static](https://github.com/onnx/onnx/issues/654), so what I expected is
 
 ![simple_reshape](imgs/simple_reshape.png)
 
-However, I got the following complicated model even though I have polished it:
+However, I got the following complicated model even after
+[polishing](https://github.com/onnx/onnx/blob/master/docs/PythonAPIOverview.md#polishing-the-model) it:
 
 ![complicated_reshape](imgs/complicated_reshape.png)
 
-Moreover, there are also some operations performed on weight. As pointed out in https://github.com/onnx/onnx/issues/1758
-and https://github.com/JDAI-CV/DNNLibrary/issues/26, they can all be eliminated by offline computation.
+Moreover, there are also operations performed on weights in some ONNX models (e.g.,
+[this](https://github.com/JDAI-CV/DNNLibrary/issues/17#issuecomment-455934190)). As pointed out in
+https://github.com/onnx/onnx/issues/1758 and https://github.com/JDAI-CV/DNNLibrary/issues/26,
+they can all be eliminated by offline computation.
 
 ## Our solution
 
