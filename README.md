@@ -48,7 +48,8 @@ they can all be eliminated by offline computation.
 
 ## Our solution
 
-ONNX Simplifier is presented to simplify the ONNX model by removing these redundant operators.
+ONNX Simplifier is presented to simplify the ONNX model. It infers the whole computation graph
+and then replaces the redundant operators with their constant outputs.
 
 Just install it via pip (Python >= 3.5)
 
