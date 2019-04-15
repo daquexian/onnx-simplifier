@@ -1,0 +1,12 @@
+language: python
+python:
+  - "3.5"
+script:
+  -
+deploy:
+  provider: pypi
+  user: "daquexian"
+  password: $PYPI_PASSWORD
+  on:
+    branch: master
+    tags: true
