@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='onnx-simplifier',
-    version='0.1.2',
+    version='0.1.3',
     description='Simplify your ONNX model',
     author='daquexian',
     author_email='daquexian566@gmail.com',
@@ -13,7 +13,8 @@ setup(
     keywords='deep-learning ONNX',
     install_requires=[
         'onnx',
-        'onnxruntime >= 0.3.0'
+        'onnxruntime >= 0.3.0',
+        'protobuf >= 3.7.0'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
