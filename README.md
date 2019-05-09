@@ -14,9 +14,6 @@ One day I wanted to export the following simple reshape operation to ONNX:
 ```python
 import torch
 
-import onnx
-import onnx.utils
-
 
 class OnlyReshape(torch.nn.Module):
     def __init__(self):
