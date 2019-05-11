@@ -16,7 +16,6 @@ def add_features_to_output(m: onnx.ModelProto) -> None:
     Add features to output in pb, so that ONNX Runtime will output them.
     :param m: the model that will be run in ONNX Runtime
     """
-    del m.graph.output[:]
     m.graph.output.extend(m.graph.value_info)
 
 
