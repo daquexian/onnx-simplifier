@@ -99,7 +99,8 @@ def forward(model, inputs=None):
 
 
 def forward_all(model: onnx.ModelProto) -> Dict[str, np.ndarray]:
-    model = onnx.utils.polish_model(model)
+    import copy
+    model = copy.deepcopy(model)
     add_features_to_output(model)
     res = forward(model)
     return res
@@ -113,7 +114,6 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
     :param res: The dict containing all tensors, got by `forward_all`
     :return: the simplified onnx model. Redundant ops are all removed.
     """
-    model = onnx.utils.polish_model(model)
     for node in model.graph.node[:]:
         if node in const_nodes:
             assert len(node.output) == 1
@@ -135,11 +135,13 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
     return model
 
 
-def postprocess(model: onnx.ModelProto) -> onnx.ModelProto:
+def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
     """
-    :param model: The simplified onnx model.
-    :return: The new onnx model. Constants generated in previous step will be extracted into initializer,
-    and unused constants will be eliminated.
+    :param model: The onnx model.
+    :return: The optimized onnx model.
+    Before simplifying, use this method to generate value_info, which is used in `forward_all`
+    After simplifying, use this method to fold constants generated in previous step into initializer,
+    and eliminate unused constants.
     """
     model = onnx.utils.polish_model(model)
     model = onnx.optimizer.optimize(model, ['eliminate_deadend', 'eliminate_identity', 'eliminate_nop_dropout',
@@ -175,9 +177,11 @@ def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0) -> onnx.M
     if type(model_ori) == str:
         model_ori = onnx.load(model_ori)
 
-    model_opt = eliminate_const_nodes(model_ori, get_constant_nodes(model_ori), forward_all(model_ori))
+    model_opt = optimize(model_ori)
 
-    model_opt = postprocess(model_opt)
+    model_opt = eliminate_const_nodes(model_opt, get_constant_nodes(model_opt), forward_all(model_opt))
+
+    model_opt = optimize(model_opt)
 
     check(model_opt, model_ori, check_n)
 
