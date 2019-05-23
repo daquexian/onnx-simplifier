@@ -3,9 +3,9 @@ from collections import OrderedDict
 from typing import List, Dict, Union
 
 import onnx
-import onnx.utils
 import onnx.helper
 import onnx.optimizer
+import onnx.shape_inference
 import onnxruntime as rt
 
 import numpy as np
@@ -143,7 +143,7 @@ def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
     After simplifying, use this method to fold constants generated in previous step into initializer,
     and eliminate unused constants.
     """
-    model = onnx.utils.polish_model(model)
+    onnx.helper.strip_doc_string(model)
     model = onnx.optimizer.optimize(model, ['eliminate_deadend', 'eliminate_identity', 'eliminate_nop_dropout',
                                             'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
                                             'extract_constant_to_initializer', 'eliminate_unused_initializer',
@@ -164,6 +164,7 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
     :param model_ori: The original ONNX model
     :param n_times: Generate n random inputs
     """
+    onnx.checker.check_model(model_opt)
     for _ in range(n_times):
         rand_input = generate_rand_input(model_opt)
         res_opt = forward(model_opt, inputs=rand_input)
@@ -173,15 +174,20 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
             assert np.allclose(res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5)
 
 
-def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0) -> onnx.ModelProto:
+def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True) \
+        -> onnx.ModelProto:
     if type(model_ori) == str:
         model_ori = onnx.load(model_ori)
+    onnx.checker.check_model(model_ori)
 
-    model_opt = optimize(model_ori)
+    model_opt = onnx.shape_inference.infer_shapes(model_ori)
+    if perform_optimization:
+        model_opt = optimize(model_opt)
 
     model_opt = eliminate_const_nodes(model_opt, get_constant_nodes(model_opt), forward_all(model_opt))
 
-    model_opt = optimize(model_opt)
+    if perform_optimization:
+        model_opt = optimize(model_opt)
 
     check(model_opt, model_ori, check_n)
 
