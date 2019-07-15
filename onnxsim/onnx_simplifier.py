@@ -174,6 +174,14 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
             assert np.allclose(res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5)
 
 
+def clean_constant_nodes(const_nodes: List[onnx.NodeProto], res: Dict[str, np.ndarray]):
+    """
+    :param const_nodes: const nodes detected by `get_constant_nodes`
+    :param res: The dict containing all tensors, got by `forward_all`
+    :return: The constant nodes which have an output in res
+    """
+    return [node for node in const_nodes if node.output[0] in res]
+
 def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True) \
         -> onnx.ModelProto:
     if type(model_ori) == str:
@@ -184,7 +192,10 @@ def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_o
     if perform_optimization:
         model_opt = optimize(model_opt)
 
-    model_opt = eliminate_const_nodes(model_opt, get_constant_nodes(model_opt), forward_all(model_opt))
+    const_nodes = get_constant_nodes(model_opt)
+    res = forward_all(model_opt)
+    const_nodes = clean_constant_nodes(const_nodes, res)
+    model_opt = eliminate_const_nodes(model_opt, const_nodes, res)
 
     if perform_optimization:
         model_opt = optimize(model_opt)
