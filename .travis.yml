@@ -2,8 +2,11 @@ language: python
 python:
   - "3.5"
 script:
-  -
+  - echo "tag is $TRAVIS_TAG"
+  - sed -i "s/0.0.0/`echo $TRAVIS_TAG | cut -c 2-`/" setup.py
+  - cat setup.py
 deploy:
+  skip_cleanup: true
   provider: pypi
   user: "daquexian"
   password: $PYPI_PASSWORD

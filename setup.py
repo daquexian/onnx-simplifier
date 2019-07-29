@@ -2,7 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name='onnx-simplifier',
-    version='0.1.5',
+    # The version will be updated automatically in CI
+    version='0.0.0',
     description='Simplify your ONNX model',
     author='daquexian',
     author_email='daquexian566@gmail.com',
