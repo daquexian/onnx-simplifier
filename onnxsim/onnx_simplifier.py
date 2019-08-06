@@ -178,11 +178,13 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
 
 def clean_constant_nodes(const_nodes: List[onnx.NodeProto], res: Dict[str, np.ndarray]):
     """
+    It seems not needed since commit 6f2a72, but maybe it still prevents some unknown bug
     :param const_nodes: const nodes detected by `get_constant_nodes`
     :param res: The dict containing all tensors, got by `forward_all`
     :return: The constant nodes which have an output in res
     """
     return [node for node in const_nodes if node.output[0] in res]
+
 
 def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True) \
         -> onnx.ModelProto:
