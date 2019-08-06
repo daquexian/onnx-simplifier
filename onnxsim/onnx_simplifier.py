@@ -16,7 +16,9 @@ def add_features_to_output(m: onnx.ModelProto) -> None:
     Add features to output in pb, so that ONNX Runtime will output them.
     :param m: the model that will be run in ONNX Runtime
     """
-    m.graph.output.extend(m.graph.value_info)
+    for node in m.graph.node:
+        for output in node.output:
+            m.graph.output.extend([onnx.ValueInfoProto(name=output)])
 
 
 def get_shape_from_value_info_proto(v: onnx.ValueInfoProto) -> List[int]:
