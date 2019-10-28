@@ -28,13 +28,7 @@ def get_shape_from_value_info_proto(v: onnx.ValueInfoProto) -> List[int]:
     return [dim.dim_value for dim in v.type.tensor_type.shape.dim]
 
 
-def get_value_info(m: onnx.ModelProto, name: str) -> onnx.ValueInfoProto:
-    for v in m.graph.value_info:
-        if v.name == name:
-            return v
-
-
-def get_value_info_all(m: onnx.ModelProto, name: str) -> onnx.ValueInfoProto:
+def get_value_info_all(m: onnx.ModelProto, name: str) -> Optional[onnx.ValueInfoProto]:
     for v in m.graph.value_info:
         if v.name == name:
             return v
@@ -46,6 +40,8 @@ def get_value_info_all(m: onnx.ModelProto, name: str) -> onnx.ValueInfoProto:
     for v in m.graph.output:
         if v.name == name:
             return v
+
+    return None
 
 
 def get_shape(m: onnx.ModelProto, name: str) -> TensorShape:
