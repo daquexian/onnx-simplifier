@@ -29,7 +29,7 @@ dummy_input = torch.randn(2, 3, 4, 5)
 torch.onnx.export(net, dummy_input, model_name, input_names=['input'], output_names=['output'])
 ```
 
-Input shape in ONNX is [static](https://github.com/onnx/onnx/issues/654), so what I expected is
+The input shape in this model is static, so what I expected is
 
 ![simple_reshape](imgs/simple_reshape.png)
 
@@ -57,6 +57,12 @@ Then
 
 ```
 python3 -m onnxsim input_model output_model
+```
+
+For more functions like skipping optimization and setting input shape manually (when input shape is dynamic itself), try the following command for help message
+
+```
+python3 -m onnxsim -h
 ```
 
 ## Demonstration
