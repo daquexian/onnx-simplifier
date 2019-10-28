@@ -55,14 +55,14 @@ def get_shape(m: onnx.ModelProto, name: str) -> TensorShape:
     v = get_value_info_all(m, name)
     if v is not None:
         return get_shape_from_value_info_proto(v)
-    raise RuntimeError("Cannot get shape of {}".format(name))
+    raise RuntimeError('Cannot get shape of "{}"'.format(name))
 
 
 def get_elem_type(m: onnx.ModelProto, name: str) -> int:
     v = get_value_info_all(m, name)
     if v is not None:
         return v.type.tensor_type.elem_type
-    raise RuntimeError("Cannot get type of {}".format(name))
+    raise RuntimeError('Cannot get type of "{}"'.format(name))
 
 
 def get_np_type_from_elem_type(elem_type: int) -> int:
@@ -88,7 +88,7 @@ def generate_rand_input(model, input_shapes: TensorShapes = {}):
     for key in full_input_shapes:
         if np.prod(full_input_shapes[key]) <= 0:
             raise RuntimeError(
-                "The shape of input {} has dynamic size, please determine the input size manually by --input-shape xxx")
+                'The shape of input "{}" has dynamic size, please determine the input size manually by --input-shape xxx'.format(key))
 
     inputs = {ipt: np.random.rand(*full_input_shapes[ipt]).astype(np.float32) for ipt in
               input_names}
@@ -188,7 +188,8 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
     :param n_times: Generate n random inputs
     """
     onnx.checker.check_model(model_opt)
-    for _ in range(n_times):
+    for i in range(n_times):
+        print("Checking {}/{}...".format(i, n_times))
         rand_input = generate_rand_input(model_opt, input_shapes=input_shapes)
         res_opt = forward(model_opt, inputs=rand_input)
         res_ori = forward(model_ori, inputs=rand_input)
@@ -220,7 +221,7 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
     for x in input_shapes:
         if x not in input_names:
             raise RuntimeError(
-                "The model doesn't have input named {}".format(x))
+                'The model doesn\'t have input named "{}"'.format(x))
     return input_shapes
 
 
