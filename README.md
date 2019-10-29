@@ -56,7 +56,7 @@ pip3 install onnx-simplifier
 Then
 
 ```
-python3 -m onnxsim input_model output_model
+python3 -m onnxsim input_onnx_model output_onnx_model
 ```
 
 For more functions like skipping optimization and setting input shape manually (when input shape is dynamic itself), try the following command for help message
