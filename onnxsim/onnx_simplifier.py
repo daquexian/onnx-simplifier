@@ -76,6 +76,20 @@ def get_input_names(model: onnx.ModelProto) -> List[str]:
     return input_names
 
 
+def add_initializers_into_inputs(model: onnx.ModelProto) -> onnx.ModelProto:
+    # Due to a onnx bug, https://github.com/onnx/onnx/issues/2417, we need to add missing initializers into inputs
+    for x in model.graph.initializer:
+        if x not in model.graph.input:
+            shape = onnx.TensorShapeProto()
+            for dim in x.dims:
+                shape.dim.extend([onnx.TensorShapeProto.Dimension(dim_value=dim)])
+            model.graph.input.extend(
+                [onnx.ValueInfoProto(name=x.name,
+                                     type=onnx.TypeProto(tensor_type=onnx.TypeProto.Tensor(elem_type=x.data_type,
+                                                                                           shape=shape)))])
+    return model
+
+
 def generate_rand_input(model, input_shapes: TensorShapes = {}):
     input_names = get_input_names(model)
     full_input_shapes = {ipt: get_shape(model, ipt) for ipt in input_names}
@@ -226,6 +240,7 @@ def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_o
     if type(model_ori) == str:
         model_ori = onnx.load(model_ori)
     onnx.checker.check_model(model_ori)
+    model_ori = add_initializers_into_inputs(model_ori)
 
     input_shapes = check_and_update_input_shapes(model_ori, input_shapes)
 
