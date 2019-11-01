@@ -99,7 +99,8 @@ def generate_rand_input(model, input_shapes: TensorShapes = {}):
     for key in full_input_shapes:
         if np.prod(full_input_shapes[key]) <= 0:
             raise RuntimeError(
-                'The shape of input "{}" has dynamic size, please determine the input size manually by --input-shape xxx'.format(key))
+                'The shape of input "{}" has dynamic size, '
+                'please determine the input size manually by --input-shape xxx'.format(key))
 
     inputs = {ipt: np.array(np.random.rand(*full_input_shapes[ipt]),
                             dtype=get_np_type_from_elem_type(get_elem_type(model, ipt))) for ipt in
@@ -191,7 +192,8 @@ def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
     return model
 
 
-def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int = 5, input_shapes: TensorShapes = {}) -> None:
+def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int = 5,
+          input_shapes: TensorShapes = {}) -> None:
     """
     Warning: Some models (e.g., MobileNet) may fail this check by a small magnitude.
     Just ignore if it happens.
@@ -239,7 +241,8 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
     return input_shapes
 
 
-def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True, input_shapes: TensorShapes = {}) \
+def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
+             input_shapes: TensorShapes = {}) \
         -> onnx.ModelProto:
     if type(model_ori) == str:
         model_ori = onnx.load(model_ori)
