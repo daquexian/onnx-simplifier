@@ -79,7 +79,8 @@ def get_input_names(model: onnx.ModelProto) -> List[str]:
 def add_initializers_into_inputs(model: onnx.ModelProto) -> onnx.ModelProto:
     # Due to a onnx bug, https://github.com/onnx/onnx/issues/2417, we need to add missing initializers into inputs
     for x in model.graph.initializer:
-        if x not in model.graph.input:
+        input_names = [x.name for x in model.graph.input]
+        if x.name not in input_names:
             shape = onnx.TensorShapeProto()
             for dim in x.dims:
                 shape.dim.extend([onnx.TensorShapeProto.Dimension(dim_value=dim)])
