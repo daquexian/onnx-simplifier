@@ -207,8 +207,10 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
         res_ori = forward(model_ori, inputs=rand_input)
 
         for name in res_opt.keys():
-            assert np.allclose(
-                res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5)
+            if not np.allclose(res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5):
+                print("Tensor {} changes after simplifying. The max diff is {}.".format(
+                    name, np.max(np.abs(res_opt[name] - res_ori[name]))))
+                print("Note that the checking is not always correct.")
 
 
 def clean_constant_nodes(const_nodes: List[onnx.NodeProto], res: Dict[str, np.ndarray]):
