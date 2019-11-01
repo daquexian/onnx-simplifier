@@ -101,7 +101,8 @@ def generate_rand_input(model, input_shapes: TensorShapes = {}):
             raise RuntimeError(
                 'The shape of input "{}" has dynamic size, please determine the input size manually by --input-shape xxx'.format(key))
 
-    inputs = {ipt: np.random.rand(*full_input_shapes[ipt]).astype(get_np_type_from_elem_type(get_elem_type(model, ipt))) for ipt in
+    inputs = {ipt: np.array(np.random.rand(*full_input_shapes[ipt]),
+                            dtype=get_np_type_from_elem_type(get_elem_type(model, ipt))) for ipt in
               input_names}
     return inputs
 
