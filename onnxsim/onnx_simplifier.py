@@ -2,13 +2,13 @@ from collections import OrderedDict
 
 from typing import List, Dict, Union, Optional
 
-import onnx                     # type: ignore
-import onnx.helper              # type: ignore
-import onnx.optimizer           # type: ignore
-import onnx.shape_inference     # type: ignore
-import onnxruntime as rt        # type: ignore
+import onnx  # type: ignore
+import onnx.helper  # type: ignore
+import onnx.optimizer  # type: ignore
+import onnx.shape_inference  # type: ignore
+import onnxruntime as rt  # type: ignore
 
-import numpy as np              # type: ignore
+import numpy as np  # type: ignore
 
 TensorShape = List[int]
 TensorShapes = Dict[Optional[str], TensorShape]
@@ -91,7 +91,9 @@ def add_initializers_into_inputs(model: onnx.ModelProto) -> onnx.ModelProto:
     return model
 
 
-def generate_rand_input(model, input_shapes: TensorShapes = {}):
+def generate_rand_input(model, input_shapes: Optional[TensorShapes] = None):
+    if input_shapes is None:
+        input_shapes = {}
     input_names = get_input_names(model)
     full_input_shapes = {ipt: get_shape(model, ipt) for ipt in input_names}
     assert None not in input_shapes
@@ -124,7 +126,9 @@ def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
     return const_nodes
 
 
-def forward(model, inputs=None, input_shapes: TensorShapes = {}) -> Dict[str, np.ndarray]:
+def forward(model, inputs=None, input_shapes: Optional[TensorShapes] = None) -> Dict[str, np.ndarray]:
+    if input_shapes is None:
+        input_shapes = {}
     sess = rt.InferenceSession(model.SerializeToString())
     if inputs is None:
         inputs = generate_rand_input(model, input_shapes=input_shapes)
@@ -133,7 +137,9 @@ def forward(model, inputs=None, input_shapes: TensorShapes = {}) -> Dict[str, np
     return res
 
 
-def forward_all(model: onnx.ModelProto, input_shapes: TensorShapes = {}) -> Dict[str, np.ndarray]:
+def forward_all(model: onnx.ModelProto, input_shapes: Optional[TensorShapes] = None) -> Dict[str, np.ndarray]:
+    if input_shapes is None:
+        input_shapes = {}
     import copy
     model = copy.deepcopy(model)
     add_features_to_output(model)
@@ -195,14 +201,17 @@ def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
 
 
 def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int = 5,
-          input_shapes: TensorShapes = {}) -> None:
+          input_shapes: Optional[TensorShapes] = None) -> None:
     """
     Warning: Some models (e.g., MobileNet) may fail this check by a small magnitude.
     Just ignore if it happens.
+    :param input_shapes: Shapes of generated random inputs
     :param model_opt: The simplified ONNX model
     :param model_ori: The original ONNX model
     :param n_times: Generate n random inputs
     """
+    if input_shapes is None:
+        input_shapes = {}
     onnx.checker.check_model(model_opt)
     for i in range(n_times):
         print("Checking {}/{}...".format(i, n_times))
@@ -244,8 +253,10 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
 
 
 def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
-             input_shapes: TensorShapes = {}) \
+             input_shapes: Optional[TensorShapes] = None) \
         -> onnx.ModelProto:
+    if input_shapes is None:
+        input_shapes = {}
     if type(model_ori) == str:
         model_ori = onnx.load(model_ori)
     onnx.checker.check_model(model_ori)
