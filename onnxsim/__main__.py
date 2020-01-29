@@ -9,7 +9,7 @@ def main():
     parser.add_argument('input_model', help='Input ONNX model')
     parser.add_argument('output_model', help='Output ONNX model')
     parser.add_argument('check_n', help='Check whether the output is correct with n random inputs',
-                        nargs='?', type=int, default=0)
+                        nargs='?', type=int, default=3)
     parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
                         action='store_true')
     parser.add_argument(
@@ -27,11 +27,15 @@ def main():
                 name, shape = ':'.join(
                     pieces[:-1]), list(map(int, pieces[-1].split(',')))
                 input_shapes[name] = shape
-    model_opt = onnxsim.simplify(
+    model_opt, check_ok = onnxsim.simplify(
         args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, input_shapes=input_shapes)
 
     onnx.save(model_opt, args.output_model)
-    print("Ok!")
+
+    if check_ok:
+        print("Ok!")
+    else:
+        print("Check failed, please be careful to use the simplified model.")
 
 
 if __name__ == '__main__':

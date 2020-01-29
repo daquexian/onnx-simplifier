@@ -1,11 +1,13 @@
 from collections import OrderedDict
 
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union, Optional, Tuple
+import copy
 
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
 import onnx.optimizer  # type: ignore
 import onnx.shape_inference  # type: ignore
+import onnx.numpy_helper
 import onnxruntime as rt  # type: ignore
 
 import numpy as np  # type: ignore
@@ -54,16 +56,16 @@ def get_shape(m: onnx.ModelProto, name: str) -> TensorShape:
     raise RuntimeError('Cannot get shape of "{}"'.format(name))
 
 
-def get_elem_type(m: onnx.ModelProto, name: str) -> int:
+def get_elem_type(m: onnx.ModelProto, name: str) -> Optional[int]:
     v = get_value_info_all(m, name)
     if v is not None:
         return v.type.tensor_type.elem_type
-    raise RuntimeError('Cannot get type of "{}"'.format(name))
+    return None
 
 
 def get_np_type_from_elem_type(elem_type: int) -> int:
-    sizes = (None, np.float32, np.uint8, np.int8, np.uint16, np.int16, np.int32, np.int64, None, None,
-             np.float16, np.double, np.uint32, np.uint64, None, None, np.float16)
+    sizes = (None, np.float32, np.uint8, np.int8, np.uint16, np.int16, np.int32, np.int64, str, np.bool,
+             np.float16, np.double, np.uint32, np.uint64, np.complex64, np.complex128, np.float16)
     assert len(sizes) == 17
     size = sizes[elem_type]
     assert size is not None
@@ -77,7 +79,6 @@ def get_input_names(model: onnx.ModelProto) -> List[str]:
 
 
 def add_initializers_into_inputs(model: onnx.ModelProto) -> onnx.ModelProto:
-    # Due to a onnx bug, https://github.com/onnx/onnx/issues/2417, we need to add missing initializers into inputs
     for x in model.graph.initializer:
         input_names = [x.name for x in model.graph.input]
         if x.name not in input_names:
@@ -130,28 +131,39 @@ def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
         elif all([x in const_tensors for x in node.input]):
             const_nodes.append(node)
             const_tensors.extend(node.output)
-    return const_nodes
+    return copy.deepcopy(const_nodes)
 
 
 def forward(model, inputs=None, input_shapes: Optional[TensorShapes] = None) -> Dict[str, np.ndarray]:
     if input_shapes is None:
         input_shapes = {}
-    sess = rt.InferenceSession(model.SerializeToString())
+    sess_options = rt.SessionOptions()
+    sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
+    sess_options.log_severity_level = 3
+    sess = rt.InferenceSession(model.SerializeToString(), sess_options=sess_options)
     if inputs is None:
         inputs = generate_rand_input(model, input_shapes=input_shapes)
     outputs = [x.name for x in sess.get_outputs()]
-    res = OrderedDict(zip(outputs, sess.run(outputs, inputs)))
+    run_options = rt.RunOptions()
+    run_options.log_severity_level = 3
+    res = OrderedDict(zip(outputs, sess.run(outputs, inputs, run_options=run_options)))
     return res
 
 
 def forward_all(model: onnx.ModelProto, input_shapes: Optional[TensorShapes] = None) -> Dict[str, np.ndarray]:
     if input_shapes is None:
         input_shapes = {}
-    import copy
     model = copy.deepcopy(model)
     add_features_to_output(model)
     res = forward(model, input_shapes=input_shapes)
     return res
+
+
+def insert_elem(repeated_container, index: int, element):
+    repeated_container.extend([repeated_container[-1]])
+    for i in reversed(range(index + 1, len(repeated_container) - 1)):
+        repeated_container[i].CopyFrom(repeated_container[i - 1])
+    repeated_container[index].CopyFrom(element)
 
 
 def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodeProto],
@@ -162,25 +174,24 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
     :param res: The dict containing all tensors, got by `forward_all`
     :return: the simplified onnx model. Redundant ops are all removed.
     """
-    for node in model.graph.node[:]:
+    for i, node in enumerate(model.graph.node):
         if node in const_nodes:
-            assert len(node.output) == 1
-            node.op_type = 'Constant'
-            elem_type = get_elem_type(model, node.output[0])
-            shape = res[node.output[0]].shape
-            new_attr = onnx.helper.make_attribute(
-                'value',
-                onnx.helper.make_tensor(
-                    name=node.output[0],
-                    data_type=elem_type,
-                    dims=shape,
-                    vals=np.array(res[node.output[0]]).flatten().astype(
-                        get_np_type_from_elem_type(elem_type))
-                ))
-            del node.input[:]
-            del node.attribute[:]
-            node.attribute.extend(
-                [new_attr])
+            for output in node.output:
+                new_node = copy.deepcopy(node)
+                new_node.name = "node_" + output
+                new_node.op_type = 'Constant'
+                new_attr = onnx.helper.make_attribute(
+                    'value',
+                    onnx.numpy_helper.from_array(res[output], name=output)
+                    )
+                del new_node.input[:]
+                del new_node.attribute[:]
+                del new_node.output[:]
+                new_node.output.extend([output])
+                new_node.attribute.extend([new_attr])
+                insert_elem(model.graph.node, i + 1, new_node)
+            del model.graph.node[i]
+
     return model
 
 
@@ -192,23 +203,29 @@ def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
     After simplifying, use this method to fold constants generated in previous step into initializer,
     and eliminate unused constants.
     """
+
+    # Due to a onnx bug, https://github.com/onnx/onnx/issues/2417, we need to add missing initializers into inputs
+    input_num = len(model.graph.input)
+    model = add_initializers_into_inputs(model)
     onnx.helper.strip_doc_string(model)
     model = onnx.optimizer.optimize(model, ['eliminate_deadend', 'eliminate_identity', 'eliminate_nop_dropout',
                                             'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
                                             'extract_constant_to_initializer', 'eliminate_unused_initializer',
                                             'eliminate_nop_transpose', 'fuse_add_bias_into_conv', 'fuse_bn_into_conv',
                                             # https://github.com/daquexian/onnx-simplifier/issues/31
-                                            # 'fuse_consecutive_concats', 
+                                            # 'fuse_consecutive_concats',
                                             'fuse_consecutive_log_softmax',
                                             'fuse_consecutive_reduce_unsqueeze', 'fuse_consecutive_squeezes',
                                             'fuse_consecutive_transposes', 'fuse_matmul_add_bias_into_gemm',
                                             'fuse_pad_into_conv', 'fuse_transpose_into_gemm'],
                                     fixed_point=True)
+    del model.graph.input[input_num:]
+    onnx.checker.check_model(model)
     return model
 
 
 def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int = 5,
-          input_shapes: Optional[TensorShapes] = None) -> None:
+          input_shapes: Optional[TensorShapes] = None) -> bool:
     """
     Warning: Some models (e.g., MobileNet) may fail this check by a small magnitude.
     Just ignore if it happens.
@@ -231,6 +248,13 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
                 print("Tensor {} changes after simplifying. The max diff is {}.".format(
                     name, np.max(np.abs(res_opt[name] - res_ori[name]))))
                 print("Note that the checking is not always correct.")
+                print("After simplifying:")
+                print(res_opt[name])
+                print("Before simplifying:")
+                print(res_ori[name])
+                print("----------------")
+                return False
+    return True
 
 
 def clean_constant_nodes(const_nodes: List[onnx.NodeProto], res: Dict[str, np.ndarray]):
@@ -259,30 +283,31 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
     return input_shapes
 
 
-def simplify(model_ori: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
+def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
              input_shapes: Optional[TensorShapes] = None) \
-        -> onnx.ModelProto:
+        -> Tuple[onnx.ModelProto, bool]:
     if input_shapes is None:
         input_shapes = {}
-    if type(model_ori) == str:
-        model_ori = onnx.load(model_ori)
-    onnx.checker.check_model(model_ori)
-    model_ori = add_initializers_into_inputs(model_ori)
+    if type(model) == str:
+        model = onnx.load(model)
+    onnx.checker.check_model(model)
+    model_ori = copy.deepcopy(model)
+    model = onnx.shape_inference.infer_shapes(model)
 
-    input_shapes = check_and_update_input_shapes(model_ori, input_shapes)
+    input_shapes = check_and_update_input_shapes(model, input_shapes)
 
-    model_opt = onnx.shape_inference.infer_shapes(model_ori)
     if perform_optimization:
-        model_opt = optimize(model_opt)
+        model = optimize(model)
 
-    const_nodes = get_constant_nodes(model_opt)
-    res = forward_all(model_opt, input_shapes=input_shapes)
+    const_nodes = get_constant_nodes(model)
+    res = forward_all(model, input_shapes=input_shapes)
     const_nodes = clean_constant_nodes(const_nodes, res)
-    model_opt = eliminate_const_nodes(model_opt, const_nodes, res)
+    model = eliminate_const_nodes(model, const_nodes, res)
+    onnx.checker.check_model(model)
 
     if perform_optimization:
-        model_opt = optimize(model_opt)
+        model = optimize(model)
 
-    check(model_opt, model_ori, check_n, input_shapes=input_shapes)
+    check_ok = check(model_ori, model, check_n, input_shapes=input_shapes)
 
-    return model_opt
+    return model, check_ok
