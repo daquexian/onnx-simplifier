@@ -7,11 +7,11 @@ script:
   - sed -i "s/0.0.0/`echo $TRAVIS_TAG | cut -c 2-`/" onnxsim/__init__.py
   - cat setup.py
   - python3 setup.py develop
-  - wget https://docs.google.com/uc?export=download&id=1EEencrovhayXTuqVL-zzV5eD_NoBEpfm -O mobilenetseg.onnx && python3 -m onnxsim mobilenetseg.onnx temp.onnx --skip-optimization --input-shape 1,224,224,3
-  - wget https://docs.google.com/uc?export=download&id=1DJ4Fqa5Lsku4Zuu96ax4r7BO0unlYshv -O pytorch13.onnx && python3 -m onnxsim pytorch13.onnx temp.onnx
-  - wget https://docs.google.com/uc?export=download&id=1ZML6j-88jR6DfRNBtYZZ-CHR7fttU9JR -O pfe.onnx && python3 -m onnxsim pfe.onnx temp.onnx
-  - wget https://docs.google.com/uc?export=download&id=1S66i5NLFszuIJRvR9tENWkB1hJ7T-bh8 -O trk.onnx && python3 -m onnxsim trk.onnx temp.onnx
-  - wget https://docs.google.com/uc?export=download&id=1QbJ_S6ob6lVvIy3qFLHPelHlg5BN_3-3 -O bisenet.onnx && python3 -m onnxsim bisenet.onnx temp.onnx
+  - wget https://drive.google.com/uc?export=download&id=1EEencrovhayXTuqVL-zzV5eD_NoBEpfm -O mobilenetseg.onnx && python3 -m onnxsim mobilenetseg.onnx temp.onnx --skip-optimization --input-shape 1,224,224,3
+  - wget https://drive.google.com/uc?export=download&id=1DJ4Fqa5Lsku4Zuu96ax4r7BO0unlYshv -O pytorch13.onnx && python3 -m onnxsim pytorch13.onnx temp.onnx
+  - wget https://drive.google.com/uc?export=download&id=1ZML6j-88jR6DfRNBtYZZ-CHR7fttU9JR -O pfe.onnx && python3 -m onnxsim pfe.onnx temp.onnx
+  - wget https://drive.google.com/uc?export=download&id=1S66i5NLFszuIJRvR9tENWkB1hJ7T-bh8 -O trk.onnx && python3 -m onnxsim trk.onnx temp.onnx
+  - wget https://drive.google.com/uc?export=download&id=1QbJ_S6ob6lVvIy3qFLHPelHlg5BN_3-3 -O bisenet.onnx && python3 -m onnxsim bisenet.onnx temp.onnx
 deploy:
   skip_cleanup: true
   provider: pypi
