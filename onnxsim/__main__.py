@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 import onnx     # type: ignore
 import onnxsim
@@ -36,6 +37,7 @@ def main():
         print("Ok!")
     else:
         print("Check failed, please be careful to use the simplified model.")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
