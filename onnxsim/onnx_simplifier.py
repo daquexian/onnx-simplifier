@@ -205,9 +205,11 @@ def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
     """
 
     # Due to a onnx bug, https://github.com/onnx/onnx/issues/2417, we need to add missing initializers into inputs
+    onnx.checker.check_model(model)
     input_num = len(model.graph.input)
     model = add_initializers_into_inputs(model)
     onnx.helper.strip_doc_string(model)
+    onnx.checker.check_model(model)
     model = onnx.optimizer.optimize(model, ['eliminate_deadend', 'eliminate_identity', 'eliminate_nop_dropout',
                                             'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
                                             'extract_constant_to_initializer', 'eliminate_unused_initializer',
