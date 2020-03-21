@@ -16,12 +16,13 @@ TensorShape = List[int]
 TensorShapes = Dict[Optional[str], TensorShape]
 
 
-def add_features_to_output(m: onnx.ModelProto) -> None:
+def add_features_to_output(m: onnx.ModelProto, nodes: List[onnx.NodeProto]) -> None:
     """
     Add features to output in pb, so that ONNX Runtime will output them.
     :param m: the model that will be run in ONNX Runtime
+    :param nodes: nodes whose outputs will be added into the graph outputs
     """
-    for node in m.graph.node:
+    for node in nodes:
         for output in node.output:
             m.graph.output.extend([onnx.ValueInfoProto(name=output)])
 
@@ -150,11 +151,12 @@ def forward(model, inputs=None, input_shapes: Optional[TensorShapes] = None) -> 
     return res
 
 
-def forward_all(model: onnx.ModelProto, input_shapes: Optional[TensorShapes] = None) -> Dict[str, np.ndarray]:
+def forward_for_node_outputs(model: onnx.ModelProto, nodes: List[onnx.NodeProto],
+                             input_shapes: Optional[TensorShapes] = None) -> Dict[str, np.ndarray]:
     if input_shapes is None:
         input_shapes = {}
     model = copy.deepcopy(model)
-    add_features_to_output(model)
+    add_features_to_output(model, nodes)
     res = forward(model, input_shapes=input_shapes)
     return res
 
@@ -302,7 +304,7 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
         model = optimize(model)
 
     const_nodes = get_constant_nodes(model)
-    res = forward_all(model, input_shapes=input_shapes)
+    res = forward_for_node_outputs(model, const_nodes, input_shapes=input_shapes)
     const_nodes = clean_constant_nodes(const_nodes, res)
     model = eliminate_const_nodes(model, const_nodes, res)
     onnx.checker.check_model(model)
