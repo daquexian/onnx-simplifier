@@ -2,6 +2,8 @@ from collections import OrderedDict
 
 from typing import List, Dict, Union, Optional, Tuple
 import copy
+import tempfile
+import os
 
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
@@ -197,15 +199,7 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
     return model
 
 
-def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
-    """
-    :param model: The onnx model.
-    :return: The optimized onnx model.
-    Before simplifying, use this method to generate value_info, which is used in `forward_all`
-    After simplifying, use this method to fold constants generated in previous step into initializer,
-    and eliminate unused constants.
-    """
-
+def optimize_by_optimizer(model: onnx.ModelProto) -> onnx.ModelProto:
     # Due to a onnx bug, https://github.com/onnx/onnx/issues/2417, we need to add missing initializers into inputs
     onnx.checker.check_model(model)
     input_num = len(model.graph.input)
@@ -215,7 +209,7 @@ def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
     model = onnx.optimizer.optimize(model, ['eliminate_deadend', 'eliminate_identity', 'eliminate_nop_dropout',
                                             'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
                                             'extract_constant_to_initializer', 'eliminate_unused_initializer',
-                                            'eliminate_nop_transpose', 'fuse_add_bias_into_conv', 'fuse_bn_into_conv',
+                                            'eliminate_nop_transpose', 
                                             # https://github.com/daquexian/onnx-simplifier/issues/31
                                             # 'fuse_consecutive_concats',
                                             'fuse_consecutive_log_softmax',
@@ -225,6 +219,33 @@ def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
                                     fixed_point=True)
     del model.graph.input[input_num:]
     onnx.checker.check_model(model)
+    return model
+
+
+def optimize_by_ort(model: onnx.ModelProto) -> onnx.ModelProto:
+    sess_options = rt.SessionOptions()
+    sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_BASIC
+    dtemp = tempfile.mkdtemp()
+    ftemp = os.path.join(dtemp, "temp.onnx")
+    sess_options.optimized_model_filepath = ftemp
+    sess = rt.InferenceSession(model.SerializeToString(), sess_options)
+    model = onnx.load(ftemp)
+    os.remove(ftemp)
+    os.rmdir(dtemp)
+    return model
+
+
+def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
+    """
+    :param model: The onnx model.
+    :return: The optimized onnx model.
+    Before simplifying, use this method to generate value_info, which is used in `forward_all`
+    After simplifying, use this method to fold constants generated in previous step into initializer,
+    and eliminate unused constants.
+    """
+
+    model = optimize_by_optimizer(model)
+    model = optimize_by_ort(model)
     return model
 
 
