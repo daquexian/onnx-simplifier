@@ -197,7 +197,7 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
     return model
 
 
-def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
+def optimize(model: onnx.ModelProto, skip_fuse_bn: bool) -> onnx.ModelProto:
     """
     :param model: The onnx model.
     :return: The optimized onnx model.
@@ -212,16 +212,20 @@ def optimize(model: onnx.ModelProto) -> onnx.ModelProto:
     model = add_initializers_into_inputs(model)
     onnx.helper.strip_doc_string(model)
     onnx.checker.check_model(model)
-    model = onnx.optimizer.optimize(model, ['eliminate_deadend', 'eliminate_identity', 'eliminate_nop_dropout',
+    optimizers_list = ['eliminate_deadend', 'eliminate_identity', 'eliminate_nop_dropout',
                                             'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
                                             'extract_constant_to_initializer', 'eliminate_unused_initializer',
-                                            'eliminate_nop_transpose', 'fuse_add_bias_into_conv', 'fuse_bn_into_conv',
+                                            'eliminate_nop_transpose', 'fuse_add_bias_into_conv', 
                                             # https://github.com/daquexian/onnx-simplifier/issues/31
                                             # 'fuse_consecutive_concats',
                                             'fuse_consecutive_log_softmax',
                                             'fuse_consecutive_reduce_unsqueeze', 'fuse_consecutive_squeezes',
                                             'fuse_consecutive_transposes', 'fuse_matmul_add_bias_into_gemm',
-                                            'fuse_pad_into_conv', 'fuse_transpose_into_gemm'],
+                                            'fuse_pad_into_conv', 'fuse_transpose_into_gemm']
+    if not skip_fuse_bn:
+        optimizers_list.append('fuse_bn_into_conv')
+
+    model = onnx.optimizer.optimize(model, optimizers_list,
                                     fixed_point=True)
     del model.graph.input[input_num:]
     onnx.checker.check_model(model)
@@ -288,7 +292,7 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
 
 
 def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
-             input_shapes: Optional[TensorShapes] = None) \
+        skip_fuse_bn: bool = False, input_shapes: Optional[TensorShapes] = None) \
         -> Tuple[onnx.ModelProto, bool]:
     if input_shapes is None:
         input_shapes = {}
@@ -301,7 +305,7 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
     input_shapes = check_and_update_input_shapes(model, input_shapes)
 
     if perform_optimization:
-        model = optimize(model)
+        model = optimize(model, skip_fuse_bn)
 
     const_nodes = get_constant_nodes(model)
     res = forward_for_node_outputs(model, const_nodes, input_shapes=input_shapes)
@@ -310,7 +314,7 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
     onnx.checker.check_model(model)
 
     if perform_optimization:
-        model = optimize(model)
+        model = optimize(model, skip_fuse_bn)
 
     check_ok = check(model_ori, model, check_n, input_shapes=input_shapes)
 

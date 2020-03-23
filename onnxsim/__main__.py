@@ -11,6 +11,8 @@ def main():
     parser.add_argument('output_model', help='Output ONNX model')
     parser.add_argument('check_n', help='Check whether the output is correct with n random inputs',
                         nargs='?', type=int, default=3)
+    parser.add_argument('--skip-fuse-bn', help='Skip ONNX fuse_bn_into_conv optimizers. In some cases it causes incorrect model (https://github.com/onnx/onnx/issues/2677).',
+                        action='store_true')
     parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
                         action='store_true')
     parser.add_argument(
@@ -29,14 +31,14 @@ def main():
                     pieces[:-1]), list(map(int, pieces[-1].split(',')))
                 input_shapes[name] = shape
     model_opt, check_ok = onnxsim.simplify(
-        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, input_shapes=input_shapes)
+        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, skip_fuse_bn=args.skip_fuse_bn, input_shapes=input_shapes)
 
     onnx.save(model_opt, args.output_model)
 
     if check_ok:
         print("Ok!")
     else:
-        print("Check failed, please be careful to use the simplified model.")
+        print("Check failed, please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
         sys.exit(1)
 
 
