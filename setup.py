@@ -14,7 +14,7 @@ setup(
     keywords='deep-learning ONNX',
     install_requires=[
         'onnx',
-        'onnxruntime >= 0.3.0',
+        'onnxruntime >= 1.2.0',
         'protobuf >= 3.7.0'
     ],
     classifiers=[
@@ -25,6 +25,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'Topic :: Scientific/Engineering',
         'Topic :: Software Development'
     ],
