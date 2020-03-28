@@ -1,11 +1,14 @@
 language: python
 python:
   - "3.5"
+install:
+  - pip install .
 script:
   - echo "tag is $TRAVIS_TAG"
   - sed -i "s/0.0.0/`echo $TRAVIS_TAG | cut -c 2-`/" setup.py
   - sed -i "s/0.0.0/`echo $TRAVIS_TAG | cut -c 2-`/" onnxsim/__init__.py
   - cat setup.py
+  - pytest
 deploy:
   skip_cleanup: true
   provider: pypi
