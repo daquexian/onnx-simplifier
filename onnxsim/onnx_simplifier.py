@@ -141,7 +141,7 @@ def forward(model, inputs=None, input_shapes: Optional[TensorShapes] = None) -> 
     sess_options = rt.SessionOptions()
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
     sess_options.log_severity_level = 3
-    sess = rt.InferenceSession(model.SerializeToString(), sess_options=sess_options)
+    sess = rt.InferenceSession(model.SerializeToString(), sess_options=sess_options, providers=['CPUExecutionProvider'])
     if inputs is None:
         inputs = generate_rand_input(model, input_shapes=input_shapes)
     outputs = [x.name for x in sess.get_outputs()]
