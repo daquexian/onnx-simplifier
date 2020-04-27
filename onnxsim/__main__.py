@@ -13,6 +13,8 @@ def main():
                         nargs='?', type=int, default=3)
     parser.add_argument('--enable-fuse-bn', help='Enable ONNX fuse_bn_into_conv optimizer. In some cases it causes incorrect model (https://github.com/onnx/onnx/issues/2677).',
                         action='store_true')
+    parser.add_argument('--skip-fuse-bn', help='This argument is deprecated. Fuse-bn has been skippped by default',
+                        action='store_true')
     parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
                         action='store_true')
     parser.add_argument(
