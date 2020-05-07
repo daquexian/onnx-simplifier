@@ -73,3 +73,23 @@ and its simplified version:
 
 ![Comparison between old model and new model](imgs/comparison.png)
 
+## In-script workflow
+
+If you would like to embed ONNX simplifier in another script, it is just that simple.
+
+```python
+import onnx
+from onnxsim import simplify
+
+# load your predefined ONNX model
+model = onnx.load(path + model_name + '.onnx')
+
+# convert model
+model_simp, check = simplify(model)
+
+assert check, "Simplified ONNX model could not be validated"
+
+# use model_simp as a standard ONNX model object
+```
+
+You can see more details of the API in [onnxsim/\_\_main\_\_.py](onnxsim/__main__.py)
