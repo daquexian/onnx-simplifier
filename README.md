@@ -47,7 +47,13 @@ can all be eliminated by offline computation.
 ONNX Simplifier is presented to simplify the ONNX model. It infers the whole computation graph
 and then replaces the redundant operators with their constant outputs.
 
-Install it via pip (Python >= 3.5)
+### Web version
+
+We have published ONNX Simplifier on https://convertmodel.com. It works out of the box and **doesn't need any installation**. Just open the webpage, choose ONNX as the output format, check the onnx simplifier and then select your model to simplify.
+
+### Python version
+
+If the web version doesn't work well for you, you can install the Python version via pip (with python > 3.5):
 
 ```
 pip3 install onnx-simplifier
@@ -75,7 +81,7 @@ and its simplified version:
 
 ## In-script workflow
 
-If you would like to embed ONNX simplifier in another script, it is just that simple.
+If you would like to embed ONNX simplifier python package in another script, it is just that simple.
 
 ```python
 import onnx
