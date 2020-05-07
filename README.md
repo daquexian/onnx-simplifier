@@ -92,4 +92,4 @@ assert(check), "Simplified ONNX model could not be validated"
 # use model_simp as a standard ONNX model object
 ```
 
-You can see more details of the API in <onnxsim/__main__.py>
+You can see more details of the API in [onnxsim/__main__.py](onnxsim/__main__.py)
