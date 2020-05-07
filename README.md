@@ -49,7 +49,7 @@ and then replaces the redundant operators with their constant outputs.
 
 ### Web version
 
-We published ONNX Simplifier on https://convertmodel.com. It works out of the box and doesn't need any installation. Just choose ONNX as the output format, check "onnx simplifier" and then select your model to simplify.
+We have published ONNX Simplifier on https://convertmodel.com. It works out of the box and **doesn't need any installation**. Just open the webpage, choose ONNX as the output format, check the onnx simplifier and then select your model to simplify.
 
 ### Python version
 
@@ -81,7 +81,7 @@ and its simplified version:
 
 ## In-script workflow
 
-If you would like to embed ONNX simplifier in another script, it is just that simple.
+If you would like to embed ONNX simplifier python package in another script, it is just that simple.
 
 ```python
 import onnx
