@@ -21,6 +21,8 @@ def main():
         '--input-shape', help='The manually-set static input shape, useful when the input shape is dynamic. The value should be "input_name:dim0,dim1,...,dimN" or simply "dim0,dim1,...,dimN" when there is only one input, for example, "data:1,3,224,224" or "1,3,224,224". Note: you might want to use some visualization tools like netron to make sure what the input name and dimension ordering (NCHW or NHWC) is.', type=str, nargs='+')
     parser.add_argument(
         '--skip-optimizer', help='Skip a certain ONNX optimizer', type=str, nargs='+')
+    parser.add_argument('--skip-shape-inference',
+                        help='Skip shape inference. Shape inference causes segfault on some large models', action='store_true')
     args = parser.parse_args()
     print("Simplifying...")
     input_shapes = {}
@@ -35,7 +37,7 @@ def main():
                     pieces[:-1]), list(map(int, pieces[-1].split(',')))
                 input_shapes[name] = shape
     model_opt, check_ok = onnxsim.simplify(
-        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, skip_fuse_bn=not args.enable_fuse_bn, input_shapes=input_shapes, skipped_optimizers=args.skip_optimizer)
+        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, skip_fuse_bn=not args.enable_fuse_bn, input_shapes=input_shapes, skipped_optimizers=args.skip_optimizer, skip_shape_inference=args.skip_shape_inference)
 
     onnx.save(model_opt, args.output_model)
 

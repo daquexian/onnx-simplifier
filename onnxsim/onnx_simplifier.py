@@ -301,7 +301,7 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
 
 
 def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
-        skip_fuse_bn: bool = True, input_shapes: Optional[TensorShapes] = None, skipped_optimizers: Optional[Sequence[str]]=None) \
+             skip_fuse_bn: bool = True, input_shapes: Optional[TensorShapes] = None, skipped_optimizers: Optional[Sequence[str]] = None, skip_shape_inference=False) \
         -> Tuple[onnx.ModelProto, bool]:
     if input_shapes is None:
         input_shapes = {}
@@ -309,7 +309,8 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
         model = onnx.load(model)
     onnx.checker.check_model(model)
     model_ori = copy.deepcopy(model)
-    model = onnx.shape_inference.infer_shapes(model)
+    if not skip_shape_inference:
+        model = onnx.shape_inference.infer_shapes(model)
 
     input_shapes = check_and_update_input_shapes(model, input_shapes)
 
