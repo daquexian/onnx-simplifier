@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from typing import List, Dict, Union, Optional, Tuple
+from typing import List, Dict, Union, Optional, Tuple, Sequence
 import copy
 
 import onnx  # type: ignore
@@ -85,7 +85,8 @@ def add_initializers_into_inputs(model: onnx.ModelProto) -> onnx.ModelProto:
         if x.name not in input_names:
             shape = onnx.TensorShapeProto()
             for dim in x.dims:
-                shape.dim.extend([onnx.TensorShapeProto.Dimension(dim_value=dim)])
+                shape.dim.extend(
+                    [onnx.TensorShapeProto.Dimension(dim_value=dim)])
             model.graph.input.extend(
                 [onnx.ValueInfoProto(name=x.name,
                                      type=onnx.TypeProto(tensor_type=onnx.TypeProto.Tensor(elem_type=x.data_type,
@@ -141,13 +142,15 @@ def forward(model, inputs=None, input_shapes: Optional[TensorShapes] = None) -> 
     sess_options = rt.SessionOptions()
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
     sess_options.log_severity_level = 3
-    sess = rt.InferenceSession(model.SerializeToString(), sess_options=sess_options, providers=['CPUExecutionProvider'])
+    sess = rt.InferenceSession(model.SerializeToString(
+    ), sess_options=sess_options, providers=['CPUExecutionProvider'])
     if inputs is None:
         inputs = generate_rand_input(model, input_shapes=input_shapes)
     outputs = [x.name for x in sess.get_outputs()]
     run_options = rt.RunOptions()
     run_options.log_severity_level = 3
-    res = OrderedDict(zip(outputs, sess.run(outputs, inputs, run_options=run_options)))
+    res = OrderedDict(zip(outputs, sess.run(
+        outputs, inputs, run_options=run_options)))
     return res
 
 
@@ -185,7 +188,7 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
                 new_attr = onnx.helper.make_attribute(
                     'value',
                     onnx.numpy_helper.from_array(res[output], name=output)
-                    )
+                )
                 del new_node.input[:]
                 del new_node.attribute[:]
                 del new_node.output[:]
@@ -197,7 +200,7 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
     return model
 
 
-def optimize(model: onnx.ModelProto, skip_fuse_bn: bool) -> onnx.ModelProto:
+def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Optional[Sequence[str]]) -> onnx.ModelProto:
     """
     :param model: The onnx model.
     :return: The optimized onnx model.
@@ -212,18 +215,25 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool) -> onnx.ModelProto:
     model = add_initializers_into_inputs(model)
     onnx.helper.strip_doc_string(model)
     onnx.checker.check_model(model)
-    optimizers_list = ['eliminate_deadend', 'eliminate_identity', 'eliminate_nop_dropout',
+    optimizers_list = ['eliminate_deadend', 'eliminate_nop_dropout',
                                             'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
                                             'extract_constant_to_initializer', 'eliminate_unused_initializer',
-                                            'eliminate_nop_transpose', 'fuse_add_bias_into_conv', 
-                                            # https://github.com/daquexian/onnx-simplifier/issues/31
-                                            # 'fuse_consecutive_concats',
+                                            'eliminate_nop_transpose', 'fuse_add_bias_into_conv',
+                                            'fuse_consecutive_concats',
                                             'fuse_consecutive_log_softmax',
                                             'fuse_consecutive_reduce_unsqueeze', 'fuse_consecutive_squeezes',
                                             'fuse_consecutive_transposes', 'fuse_matmul_add_bias_into_gemm',
                                             'fuse_pad_into_conv', 'fuse_transpose_into_gemm']
+    if model.graph.node[-1].op_type != 'Identity':
+        optimizers_list.append('eliminate_identity')
     if not skip_fuse_bn:
         optimizers_list.append('fuse_bn_into_conv')
+    if skipped_optimizers is not None:
+        for opt in skipped_optimizers:
+            try:
+                optimizers_list.remove(opt)
+            except ValueError:
+                pass
 
     model = onnx.optimizer.optimize(model, optimizers_list,
                                     fixed_point=True)
@@ -291,7 +301,7 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
 
 
 def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
-        skip_fuse_bn: bool = False, input_shapes: Optional[TensorShapes] = None) \
+        skip_fuse_bn: bool = False, input_shapes: Optional[TensorShapes] = None, skipped_optimizers: Optional[Sequence[str]]=None) \
         -> Tuple[onnx.ModelProto, bool]:
     if input_shapes is None:
         input_shapes = {}
@@ -304,16 +314,17 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
     input_shapes = check_and_update_input_shapes(model, input_shapes)
 
     if perform_optimization:
-        model = optimize(model, skip_fuse_bn)
+        model = optimize(model, skip_fuse_bn, skipped_optimizers)
 
     const_nodes = get_constant_nodes(model)
-    res = forward_for_node_outputs(model, const_nodes, input_shapes=input_shapes)
+    res = forward_for_node_outputs(
+        model, const_nodes, input_shapes=input_shapes)
     const_nodes = clean_constant_nodes(const_nodes, res)
     model = eliminate_const_nodes(model, const_nodes, res)
     onnx.checker.check_model(model)
 
     if perform_optimization:
-        model = optimize(model, skip_fuse_bn)
+        model = optimize(model, skip_fuse_bn, skipped_optimizers)
 
     check_ok = check(model_ori, model, check_n, input_shapes=input_shapes)
 
