@@ -118,18 +118,27 @@ def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
     const_tensors = [x.name for x in m.graph.initializer]
     const_tensors.extend([node.output[0]
                           for node in m.graph.node if node.op_type == 'Constant'])
-    # If one of the input of a node is produced (directly or indirectly) by nms,
+    # The output shape of some node types are determined by the input value
     # we consider the output of this node doesn't have constant shape,
     # so we do not simplify a such node even if the node is Shape op
-    tensors_nms = []
+    dynamic_tensors = []
+
+    def is_dynamic(node):
+        if node.op_type == 'NonMaxSuppression':
+            return True
+        if node.op_type in ['Reshape', 'Gather', 'Expand', 'GatherElements', 'GatherND', 'Upsample'] and len(node.input) > 1 and node.input[1] not in const_tensors:
+            return True
+        if node.op_type in ['Resize'] and (node.input[2] not in const_tensors or (len(node.input) > 3 and node.input[3] not in const_tensors)):
+            return True
+        return False
     for node in m.graph.node:
-        if any(x in tensors_nms for x in node.input):
-            tensors_nms.extend(node.output)
+        if any(x in dynamic_tensors for x in node.input):
+            dynamic_tensors.extend(node.output)
         elif node.op_type == 'Shape':
             const_nodes.append(node)
             const_tensors.extend(node.output)
-        elif node.op_type == 'NonMaxSuppression':
-            tensors_nms.extend(node.output)
+        elif is_dynamic(node):
+            dynamic_tensors.extend(node.output)
         elif all([x in const_tensors for x in node.input]):
             const_nodes.append(node)
             const_tensors.extend(node.output)
