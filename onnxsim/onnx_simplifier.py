@@ -118,15 +118,15 @@ def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
     const_tensors = [x.name for x in m.graph.initializer]
     const_tensors.extend([node.output[0]
                           for node in m.graph.node if node.op_type == 'Constant'])
-    # The output shape of some node types are determined by the input value
+    # The output shape of some node types is determined by the input value
     # we consider the output of this node doesn't have constant shape,
     # so we do not simplify a such node even if the node is Shape op
     dynamic_tensors = []
 
     def is_dynamic(node):
-        if node.op_type == 'NonMaxSuppression':
+        if node.op_type in ['NonMaxSuppression', 'NonZero', 'Unique'] and node.input[0] not in const_tensors:
             return True
-        if node.op_type in ['Reshape', 'Gather', 'Expand', 'GatherElements', 'GatherND', 'Upsample'] and len(node.input) > 1 and node.input[1] not in const_tensors:
+        if node.op_type in ['Reshape', 'Expand', 'Upsample', 'ConstantOfShape'] and len(node.input) > 1 and node.input[1] not in const_tensors:
             return True
         if node.op_type in ['Resize'] and (node.input[2] not in const_tensors or (len(node.input) > 3 and node.input[3] not in const_tensors)):
             return True
