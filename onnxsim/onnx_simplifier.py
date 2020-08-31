@@ -227,7 +227,9 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
     optimizers_list = ['eliminate_deadend', 'eliminate_nop_dropout',
                                             'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
                                             'extract_constant_to_initializer', 'eliminate_unused_initializer',
-                                            'eliminate_nop_transpose', 'fuse_add_bias_into_conv',
+                                            'eliminate_nop_transpose', 
+                                            # disable this optimizer until https://github.com/onnx/optimizer/issues/3 gets fixed
+                                            # 'fuse_add_bias_into_conv',
                                             'fuse_consecutive_concats',
                                             'fuse_consecutive_log_softmax',
                                             'fuse_consecutive_reduce_unsqueeze', 'fuse_consecutive_squeezes',
