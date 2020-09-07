@@ -128,7 +128,7 @@ def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
             return True
         if node.op_type in ['Reshape', 'Expand', 'Upsample', 'ConstantOfShape'] and len(node.input) > 1 and node.input[1] not in const_tensors:
             return True
-        if node.op_type in ['Resize'] and (node.input[2] not in const_tensors or (len(node.input) > 3 and node.input[3] not in const_tensors)):
+        if node.op_type in ['Resize'] and ((len(node.input) > 2 and node.input[2] not in const_tensors) or (len(node.input) > 3 and node.input[3] not in const_tensors)):
             return True
         return False
     for node in m.graph.node:
