@@ -248,6 +248,7 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
 
     model = onnx.optimizer.optimize(model, optimizers_list,
                                     fixed_point=True)
+    del model.graph.input[input_num:]
     onnx.checker.check_model(model)
     return model
 
