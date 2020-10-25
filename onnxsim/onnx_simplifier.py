@@ -8,6 +8,7 @@ import onnx.helper  # type: ignore
 import onnx.optimizer  # type: ignore
 import onnx.shape_inference  # type: ignore
 import onnx.numpy_helper
+import onnxoptimizer  # type: ignore
 import onnxruntime as rt  # type: ignore
 
 import numpy as np  # type: ignore
@@ -246,7 +247,7 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
             except ValueError:
                 pass
 
-    model = onnx.optimizer.optimize(model, optimizers_list,
+    model = onnxoptimizer.optimize(model, optimizers_list,
                                     fixed_point=True)
     if model.ir_version > 3:
         del model.graph.input[input_num:]
