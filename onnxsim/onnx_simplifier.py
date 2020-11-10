@@ -5,10 +5,10 @@ import copy
 
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
-import onnx.optimizer  # type: ignore
 import onnx.shape_inference  # type: ignore
 import onnx.numpy_helper
 import onnxruntime as rt  # type: ignore
+import onnxoptimizer  # type: ignore
 
 import numpy as np  # type: ignore
 
@@ -224,19 +224,16 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
     model = add_initializers_into_inputs(model)
     onnx.helper.strip_doc_string(model)
     onnx.checker.check_model(model)
-    optimizers_list = ['eliminate_deadend', 'eliminate_nop_dropout',
+    optimizers_list = ['eliminate_deadend', 'eliminate_nop_dropout', 'eliminate_nop_cast',
                                             'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
                                             'extract_constant_to_initializer', 'eliminate_unused_initializer',
-                                            'eliminate_nop_transpose', 
-                                            # disable this optimizer until https://github.com/onnx/optimizer/issues/3 gets fixed
-                                            # 'fuse_add_bias_into_conv',
+                                            'eliminate_nop_transpose', 'eliminate_identity',
+                                            'fuse_add_bias_into_conv',
                                             'fuse_consecutive_concats',
                                             'fuse_consecutive_log_softmax',
                                             'fuse_consecutive_reduce_unsqueeze', 'fuse_consecutive_squeezes',
                                             'fuse_consecutive_transposes', 'fuse_matmul_add_bias_into_gemm',
                                             'fuse_pad_into_conv', 'fuse_transpose_into_gemm']
-    if model.graph.node[-1].op_type != 'Identity':
-        optimizers_list.append('eliminate_identity')
     if not skip_fuse_bn:
         optimizers_list.append('fuse_bn_into_conv')
     if skipped_optimizers is not None:
@@ -246,8 +243,8 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
             except ValueError:
                 pass
 
-    model = onnx.optimizer.optimize(model, optimizers_list,
-                                    fixed_point=True)
+    model = onnxoptimizer.optimize(model, optimizers_list,
+                                   fixed_point=True)
     if model.ir_version > 3:
         del model.graph.input[input_num:]
     onnx.checker.check_model(model)
