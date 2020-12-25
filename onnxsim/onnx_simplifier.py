@@ -79,21 +79,6 @@ def get_input_names(model: onnx.ModelProto) -> List[str]:
     return input_names
 
 
-def add_initializers_into_inputs(model: onnx.ModelProto) -> onnx.ModelProto:
-    for x in model.graph.initializer:
-        input_names = [x.name for x in model.graph.input]
-        if x.name not in input_names:
-            shape = onnx.TensorShapeProto()
-            for dim in x.dims:
-                shape.dim.extend(
-                    [onnx.TensorShapeProto.Dimension(dim_value=dim)])
-            model.graph.input.extend(
-                [onnx.ValueInfoProto(name=x.name,
-                                     type=onnx.TypeProto(tensor_type=onnx.TypeProto.Tensor(elem_type=x.data_type,
-                                                                                           shape=shape)))])
-    return model
-
-
 def generate_rand_input(model, input_shapes: Optional[TensorShapes] = None):
     if input_shapes is None:
         input_shapes = {}
@@ -218,22 +203,23 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
     and eliminate unused constants.
     """
 
-    # Due to a onnx bug, https://github.com/onnx/onnx/issues/2417, we need to add missing initializers into inputs
     onnx.checker.check_model(model)
-    input_num = len(model.graph.input)
-    model = add_initializers_into_inputs(model)
     onnx.helper.strip_doc_string(model)
-    onnx.checker.check_model(model)
-    optimizers_list = ['eliminate_deadend', 'eliminate_nop_dropout', 'eliminate_nop_cast',
-                                            'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
-                                            'extract_constant_to_initializer', 'eliminate_unused_initializer',
-                                            'eliminate_nop_transpose', 'eliminate_identity',
-                                            'fuse_add_bias_into_conv',
-                                            'fuse_consecutive_concats',
-                                            'fuse_consecutive_log_softmax',
-                                            'fuse_consecutive_reduce_unsqueeze', 'fuse_consecutive_squeezes',
-                                            'fuse_consecutive_transposes', 'fuse_matmul_add_bias_into_gemm',
-                                            'fuse_pad_into_conv', 'fuse_transpose_into_gemm']
+    optimizers_list = [
+        'eliminate_deadend',
+        'eliminate_nop_dropout',
+        'eliminate_nop_cast',
+        'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
+        'extract_constant_to_initializer', 'eliminate_unused_initializer',
+        'eliminate_nop_transpose',
+        'eliminate_nop_flatten', 'eliminate_identity',
+        'fuse_add_bias_into_conv',
+        'fuse_consecutive_concats',
+        'fuse_consecutive_log_softmax',
+        'fuse_consecutive_reduce_unsqueeze', 'fuse_consecutive_squeezes',
+        'fuse_consecutive_transposes', 'fuse_matmul_add_bias_into_gemm',
+        'fuse_pad_into_conv', 'fuse_transpose_into_gemm', 'eliminate_duplicate_initializer'
+    ]
     if not skip_fuse_bn:
         optimizers_list.append('fuse_bn_into_conv')
     if skipped_optimizers is not None:
@@ -245,8 +231,6 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
 
     model = onnxoptimizer.optimize(model, optimizers_list,
                                    fixed_point=True)
-    if model.ir_version > 3:
-        del model.graph.input[input_num:]
     onnx.checker.check_model(model)
     return model
 
@@ -311,7 +295,7 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
 
 
 def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
-             skip_fuse_bn: bool = True, input_shapes: Optional[TensorShapes] = None, skipped_optimizers: Optional[Sequence[str]] = None, skip_shape_inference=False) \
+             skip_fuse_bn: bool = False, input_shapes: Optional[TensorShapes] = None, skipped_optimizers: Optional[Sequence[str]] = None, skip_shape_inference=False) \
         -> Tuple[onnx.ModelProto, bool]:
     if input_shapes is None:
         input_shapes = {}

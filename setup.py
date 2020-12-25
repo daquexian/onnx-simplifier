@@ -14,8 +14,8 @@ setup(
     keywords='deep-learning ONNX',
     install_requires=[
         'onnx',
-        'onnxoptimizer >= 0.1.1',
-        'onnxruntime >= 1.2.0',
+        'onnxoptimizer >= 0.1.2',
+        'onnxruntime >= 1.6.0',
         'protobuf >= 3.7.0'
     ],
     classifiers=[

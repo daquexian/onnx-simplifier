@@ -11,9 +11,9 @@ def main():
     parser.add_argument('output_model', help='Output ONNX model')
     parser.add_argument('check_n', help='Check whether the output is correct with n random inputs',
                         nargs='?', type=int, default=3)
-    parser.add_argument('--enable-fuse-bn', help='Enable ONNX fuse_bn_into_conv optimizer. In some cases it causes incorrect model (https://github.com/onnx/onnx/issues/2677).',
+    parser.add_argument('--enable-fuse-bn', help='This option is deprecated. Fusing bn into conv is enabled by default.',
                         action='store_true')
-    parser.add_argument('--skip-fuse-bn', help='This argument is deprecated. Fuse-bn has been skippped by default',
+    parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.',
                         action='store_true')
     parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
                         action='store_true')
@@ -37,7 +37,7 @@ def main():
                     pieces[:-1]), list(map(int, pieces[-1].split(',')))
                 input_shapes[name] = shape
     model_opt, check_ok = onnxsim.simplify(
-        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, skip_fuse_bn=not args.enable_fuse_bn, input_shapes=input_shapes, skipped_optimizers=args.skip_optimizer, skip_shape_inference=args.skip_shape_inference)
+        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, skip_fuse_bn=args.skip_fuse_bn, input_shapes=input_shapes, skipped_optimizers=args.skip_optimizer, skip_shape_inference=args.skip_shape_inference)
 
     onnx.save(model_opt, args.output_model)
 
