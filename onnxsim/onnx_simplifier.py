@@ -318,6 +318,8 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
     model = eliminate_const_nodes(model, const_nodes, res)
     onnx.checker.check_model(model)
 
+    if not skip_shape_inference:
+        model = onnx.shape_inference.infer_shapes(model)
     if perform_optimization:
         model = optimize(model, skip_fuse_bn, skipped_optimizers)
 
