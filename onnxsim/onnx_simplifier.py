@@ -6,7 +6,7 @@ import copy
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
 import onnx.shape_inference  # type: ignore
-import onnx.numpy_helper
+import onnx.numpy_helper  # type: ignore
 import onnxruntime as rt  # type: ignore
 import onnxoptimizer  # type: ignore
 
@@ -57,14 +57,14 @@ def get_shape(m: onnx.ModelProto, name: str) -> TensorShape:
     raise RuntimeError('Cannot get shape of "{}"'.format(name))
 
 
-def get_elem_type(m: onnx.ModelProto, name: str) -> Optional[int]:
+def get_elem_type(m: onnx.ModelProto, name: str) -> int:
     v = get_value_info_all(m, name)
     if v is not None:
         return v.type.tensor_type.elem_type
-    return None
+    raise RuntimeError('Cannot get shape dtype "{}"'.format(name))
 
 
-def get_np_type_from_elem_type(elem_type: int) -> int:
+def get_np_type_from_elem_type(elem_type: int) -> np.dtype:
     sizes = (None, np.float32, np.uint8, np.int8, np.uint16, np.int16, np.int32, np.int64, str, np.bool,
              np.float16, np.double, np.uint32, np.uint64, np.complex64, np.complex128, np.float16)
     assert len(sizes) == 17
