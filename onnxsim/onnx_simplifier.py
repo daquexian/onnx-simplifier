@@ -86,8 +86,8 @@ def generate_rand_input(model, input_shapes: Optional[TensorShapes] = None):
     full_input_shapes = {ipt: get_shape(model, ipt) for ipt in input_names}
     assert None not in input_shapes
     full_input_shapes.update(input_shapes)  # type: ignore
-    for key in full_input_shapes:
-        if np.prod(full_input_shapes[key]) <= 0:
+    for key, shape in full_input_shapes.items():
+        if not np.all(np.array(shape) > 0):
             raise RuntimeError(
                 'The shape of input "{}" has dynamic size, '
                 'please determine the input size manually by --input-shape xxx'.format(key))
@@ -205,21 +205,7 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
 
     onnx.checker.check_model(model)
     onnx.helper.strip_doc_string(model)
-    optimizers_list = [
-        'eliminate_deadend',
-        'eliminate_nop_dropout',
-        'eliminate_nop_cast',
-        'eliminate_nop_monotone_argmax', 'eliminate_nop_pad',
-        'extract_constant_to_initializer', 'eliminate_unused_initializer',
-        'eliminate_nop_transpose',
-        'eliminate_nop_flatten', 'eliminate_identity',
-        'fuse_add_bias_into_conv',
-        'fuse_consecutive_concats',
-        'fuse_consecutive_log_softmax',
-        'fuse_consecutive_reduce_unsqueeze', 'fuse_consecutive_squeezes',
-        'fuse_consecutive_transposes', 'fuse_matmul_add_bias_into_gemm',
-        'fuse_pad_into_conv', 'fuse_transpose_into_gemm', 'eliminate_duplicate_initializer'
-    ]
+    optimizers_list = onnxoptimizer.get_fuse_and_elimination_passes()
     if not skip_fuse_bn:
         optimizers_list.append('fuse_bn_into_conv')
     if skipped_optimizers is not None:
