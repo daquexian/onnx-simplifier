@@ -160,7 +160,6 @@ def forward(model, input_data: Dict[str, np.ndarray] = None,
     if input_shapes is None:
         input_shapes = {}
     sess_options = rt.SessionOptions()
-    print("custom_lib: ",custom_lib)
     if os.path.exists(custom_lib):
         sess_options.register_custom_ops_library(custom_lib)
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
