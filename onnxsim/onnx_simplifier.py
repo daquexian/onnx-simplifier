@@ -136,7 +136,6 @@ def forward(model, inputs: Optional[dict] = None, input_shapes: Optional[TensorS
     if input_shapes is None:
         input_shapes = {}
     sess_options = rt.SessionOptions()
-    print("custom_lib: ",custom_lib)
     if os.path.exists(custom_lib):
         sess_options.register_custom_ops_library(custom_lib)
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
@@ -145,7 +144,6 @@ def forward(model, inputs: Optional[dict] = None, input_shapes: Optional[TensorS
     ), sess_options=sess_options, providers=['CPUExecutionProvider'])
     if inputs is None:
         inputs = generate_rand_input(model, input_shapes=input_shapes)
-    print(inputs)
     outputs = [x.name for x in sess.get_outputs()]
     run_options = rt.RunOptions()
     run_options.log_severity_level = 3

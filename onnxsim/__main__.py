@@ -32,21 +32,17 @@ def main():
     input_shapes = dict()
     if args.input_shape is not None:
         for x in args.input_shape:
-            print(x)
             pieces = x.split(':')
             # for the input name like input:0
             name, shape = ':'.join(
                 pieces[:-1]), list(map(int, pieces[-1].split(',')))
-            print(name, shape)
             input_shapes.update({name: shape})
 
     input_datas = dict()
     if args.input_data is not None:
         for x in args.input_data:
-            print(x)
             pieces = x.split(':')
             name, data = pieces[0], pieces[-1]
-            print(name, data)
             input_datas.update({name: data})
 
     input_tensors = dict()
