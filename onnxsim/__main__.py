@@ -14,7 +14,8 @@ def main():
                         nargs='?', type=int, default=3)
     parser.add_argument('--enable-fuse-bn', help='This option is deprecated. Fusing bn into conv is enabled by default.',
                         action='store_true')
-    parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.', action='store_true')
+    parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.',
+                        action='store_true')
     parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
                         action='store_true')
     parser.add_argument(
