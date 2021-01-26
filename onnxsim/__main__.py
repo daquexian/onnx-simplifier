@@ -16,7 +16,6 @@ def main():
                         action='store_true')
     parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.',
                         action='store_true')
-    parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.', action='store_true')
     parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
                         action='store_true')
     parser.add_argument(
