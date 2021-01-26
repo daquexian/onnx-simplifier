@@ -12,6 +12,7 @@ import onnxruntime as rt  # type: ignore
 import onnxoptimizer  # type: ignore
 
 import numpy as np  # type: ignore
+import os.path
 
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
@@ -154,10 +155,14 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
 
 
 def forward(model, input_data: Dict[str, np.ndarray] = None,
-            input_shapes: Optional[TensorShapes] = None) -> Dict[str, np.ndarray]:
+            input_shapes: Optional[TensorShapes] = None,
+            custom_lib: Optional[str] = None) -> Dict[str, np.ndarray]:
     if input_shapes is None:
         input_shapes = {}
     sess_options = rt.SessionOptions()
+    print("custom_lib: ",custom_lib)
+    if os.path.exists(custom_lib):
+        sess_options.register_custom_ops_library(custom_lib)
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
     sess_options.log_severity_level = 3
     sess = rt.InferenceSession(model.SerializeToString(
@@ -185,12 +190,13 @@ def forward(model, input_data: Dict[str, np.ndarray] = None,
 
 def forward_for_node_outputs(model: onnx.ModelProto, nodes: List[onnx.NodeProto],
                              input_shapes: Optional[TensorShapes] = None,
-                             input_data: Dict[str, np.ndarray] = None) -> Dict[str, np.ndarray]:
+                             input_data: Dict[str, np.ndarray] = None,
+                             custom_lib: Optional[str]) -> Dict[str, np.ndarray]:
     if input_shapes is None:
         input_shapes = {}
     model = copy.deepcopy(model)
     add_features_to_output(model, nodes)
-    res = forward(model, input_data=input_data, input_shapes=input_shapes)
+    res = forward(model, input_data=input_data, input_shapes=input_shapes, custom_lib=custom_lib)
     return res
 
 
@@ -349,10 +355,22 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
         x = y
 
 
+def infer_shapes(model: onnx.ModelProto) -> onnx.ModelProto:
+    try:
+        model = onnx.shape_inference.infer_shapes(model)
+    except:
+        pass
+    return model
+
+
 def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
-             skip_fuse_bn: bool = False, input_shapes: Optional[TensorShapesWithOptionalKey] = None, 
-             skipped_optimizers: Optional[Sequence[str]] = None, skip_shape_inference=False, 
-             input_data: Optional[Dict[str, np.ndarray]] = None, dynamic_input_shape: bool = False) \
+             skip_fuse_bn: bool = False,
+             input_shapes: Optional[TensorShapesWithOptionalKey] = None, 
+             skipped_optimizers: Optional[Sequence[str]] = None,
+             skip_shape_inference=False, 
+             input_data: Optional[Dict[str, np.ndarray]] = None,
+             custom_lib:Optional[str] = None,
+             dynamic_input_shape: bool = False) \
         -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
@@ -408,7 +426,11 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
 
     def constant_folding(model: onnx.ModelProto) -> onnx.ModelProto:
         const_nodes = get_constant_nodes(model, dynamic_input_shape=dynamic_input_shape)
-        res = forward_for_node_outputs(model, const_nodes, input_shapes=updated_input_shapes, input_data=input_data)
+        res = forward_for_node_outputs(model,
+                                       const_nodes,
+                                       input_shapes=updated_input_shapes,
+                                       input_data=input_data,
+                                       custom_lib=custom_lib)
         const_nodes = clean_constant_nodes(const_nodes, res)
         model = eliminate_const_nodes(model, const_nodes, res)
         onnx.checker.check_model(model)
