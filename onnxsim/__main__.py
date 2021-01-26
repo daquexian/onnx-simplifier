@@ -14,8 +14,8 @@ def main():
                         nargs='?', type=int, default=3)
     parser.add_argument('--enable-fuse-bn', help='This option is deprecated. Fusing bn into conv is enabled by default.',
                         action='store_true')
-    parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.',
-                        action='store_true')
+    parser.add_argument(
+        '--skip-fuse-bn', help='Skip fusing batchnorm into conv.', action='store_true')
     parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
                         action='store_true')
     parser.add_argument(
@@ -35,7 +35,8 @@ def main():
     print("Simplifying...")
 
     if args.dynamic_input_shape and args.input_shape is None:
-        raise RuntimeError('Please pass "--input-shape" argument for generating random input and checking equality. Run "python3 -m onnxsim -h" for details.')
+        raise RuntimeError(
+            'Please pass "--input-shape" argument for generating random input and checking equality. Run "python3 -m onnxsim -h" for details.')
     if args.input_shape is not None and not args.dynamic_input_shape:
         print("Note: The input shape of the simplified model will be overwritten by the value of '--input--shape' argument. Pass '--dynamic-input-shape' if it is not what you want. Run 'python3 -m onnxsim -h' for details.")
     input_shapes = dict()

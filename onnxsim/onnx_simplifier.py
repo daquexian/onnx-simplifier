@@ -14,6 +14,7 @@ import onnxoptimizer  # type: ignore
 import numpy as np  # type: ignore
 import os.path
 
+Tensors = Dict[Optional[str], np.array]
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
 TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
@@ -154,7 +155,8 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
     return copy.deepcopy(const_nodes)
 
 
-def forward(model, input_data: Dict[str, np.ndarray] = None,
+def forward(model,
+            input_data: Dict[Tensors] = None,
             input_shapes: Optional[TensorShapes] = None,
             custom_lib: Optional[str] = None) -> Dict[str, np.ndarray]:
     if input_shapes is None:
@@ -187,15 +189,19 @@ def forward(model, input_data: Dict[str, np.ndarray] = None,
     return res
 
 
-def forward_for_node_outputs(model: onnx.ModelProto, nodes: List[onnx.NodeProto],
+def forward_for_node_outputs(model: onnx.ModelProto,
+                             nodes: List[onnx.NodeProto],
                              input_shapes: Optional[TensorShapes] = None,
-                             input_data: Dict[str, np.ndarray] = None,
-                             custom_lib: Optional[str]) -> Dict[str, np.ndarray]:
+                             input_data: Dict[Tensors] = None,
+                             custom_lib: Optional[str] = None) -> Dict[str, np.ndarray]:
     if input_shapes is None:
         input_shapes = {}
     model = copy.deepcopy(model)
     add_features_to_output(model, nodes)
-    res = forward(model, input_data=input_data, input_shapes=input_shapes, custom_lib=custom_lib)
+    res = forward(model,
+                  input_data=input_data,
+                  input_shapes=input_shapes,
+                  custom_lib=custom_lib)
     return res
 
 
@@ -277,7 +283,8 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
     onnx.checker.check_model(model_opt)
     for i in range(n_times):
         print("Checking {}/{}...".format(i, n_times))
-        rand_input = generate_all_rand_input(model_opt, input_shapes=input_shapes)
+        rand_input = generate_all_rand_input(
+            model_opt, input_shapes=input_shapes)
         res_opt = forward(model_opt, input_data=rand_input)
         res_ori = forward(model_ori, input_data=rand_input)
 
@@ -318,7 +325,7 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
         if x not in input_names:
             raise RuntimeError(
                 'The model doesn\'t have input named "{}"'.format(x))
-    return input_shapes # type: ignore
+    return input_shapes  # type: ignore
 
 
 def infer_shapes(model: onnx.ModelProto) -> onnx.ModelProto:
@@ -362,13 +369,15 @@ def infer_shapes(model: onnx.ModelProto) -> onnx.ModelProto:
     return model
 
 
-def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
+def simplify(model: Union[str, onnx.ModelProto],
+             check_n: int = 0,
+             perform_optimization: bool = True,
              skip_fuse_bn: bool = False,
-             input_shapes: Optional[TensorShapesWithOptionalKey] = None, 
+             input_shapes: Optional[TensorShapesWithOptionalKey] = None,
              skipped_optimizers: Optional[Sequence[str]] = None,
-             skip_shape_inference=False, 
-             input_data: Optional[Dict[str, np.ndarray]] = None,
-             custom_lib:Optional[str] = None,
+             skip_shape_inference: bool = False,
+             input_data: Optional[Tensors] = None,
+             custom_lib: Optional[str] = None,
              dynamic_input_shape: bool = False) \
         -> Tuple[onnx.ModelProto, bool]:
     """
@@ -381,6 +390,7 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
     :param skipped_optimizers: Skip some specific onnx optimizers
     :param skip_shape_inference: Skip shape inference (sometimes shape inference will crash)
     :param input_data: Feed custom input data for checking if needed
+    :param custom_lib: onnxruntime custom ops's shared library
     :param dynamic_input_shape: Indicates whether the input shape should be dynamic. Note that
             input_shapes is also needed even if dynamic_input_shape is True,
             the value of input_shapes will be used when generating random inputs for checking equality.
@@ -402,7 +412,8 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
     input_names = get_input_names(model)
     for input_name, data in input_data.items():
         if input_name not in input_names:
-            raise RuntimeError('The model doesn\'t have input named "{}"'.format(input_name))
+            raise RuntimeError(
+                'The model doesn\'t have input named "{}"'.format(input_name))
 
         shape = list(input_data[input_name].shape)
 
@@ -410,7 +421,8 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
         if len(shape) == 0:
             shape = [input_data[input_name].size]
         if input_name in input_shapes and shape != input_shapes[input_name]:
-            raise RuntimeError('The shape of input_data[{}] is not the same with input_shape[{}]'.format(input_name, input_name))
+            raise RuntimeError('The shape of input_data[{}] is not the same with input_shape[{}]'.format(
+                input_name, input_name))
         elif input_name not in input_shapes:
             input_shapes[input_name] = shape
 
@@ -445,6 +457,7 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
                     for i, dim in enumerate(ipt.type.tensor_type.shape.dim):
                         dim.dim_value = input_shape[i]
 
-    check_ok = check(model_ori, model, check_n, input_shapes=updated_input_shapes)
+    check_ok = check(model_ori, model, check_n,
+                     input_shapes=updated_input_shapes)
 
     return model, check_ok
