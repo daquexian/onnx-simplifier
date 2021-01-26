@@ -3,6 +3,7 @@ import sys
 
 import onnx     # type: ignore
 import onnxsim
+import numpy as np
 
 
 def main():
@@ -11,33 +12,59 @@ def main():
     parser.add_argument('output_model', help='Output ONNX model')
     parser.add_argument('check_n', help='Check whether the output is correct with n random inputs',
                         nargs='?', type=int, default=3)
-    parser.add_argument('--enable-fuse-bn', help='Enable ONNX fuse_bn_into_conv optimizer. In some cases it causes incorrect model (https://github.com/onnx/onnx/issues/2677).',
+    parser.add_argument('--enable-fuse-bn', help='This option is deprecated. Fusing bn into conv is enabled by default.',
                         action='store_true')
-    parser.add_argument('--skip-fuse-bn', help='This argument is deprecated. Fuse-bn has been skippped by default',
-                        action='store_true')
+    parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.', action='store_true')
     parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
                         action='store_true')
     parser.add_argument(
-        '--input-shape', help='The manually-set static input shape, useful when the input shape is dynamic. The value should be "input_name:dim0,dim1,...,dimN" or simply "dim0,dim1,...,dimN" when there is only one input, for example, "data:1,3,224,224" or "1,3,224,224". Note: you might want to use some visualization tools like netron to make sure what the input name and dimension ordering (NCHW or NHWC) is.', type=str, nargs='+')
+        '--input-shape', help='The manually-set static input shape, useful when the input shape is dynamic. The value should be "input_name1:dim0,dim1,...,dimN input_name2:dim0,dim1...dimN", for example, "data1:1,3,224,224 data2:1,3,224,224". Note: you might want to use some visualization tools like netron to make sure what the input name and dimension ordering (NCHW or NHWC) is.', type=str, nargs='+')
     parser.add_argument(
         '--skip-optimizer', help='Skip a certain ONNX optimizer', type=str, nargs='+')
     parser.add_argument('--skip-shape-inference',
                         help='Skip shape inference. Shape inference causes segfault on some large models', action='store_true')
+    parser.add_argument(
+        '--input_data', help='input data, The value should be "input_name1:xxx1.bin  input_name2:xxx2.bin ...", input data should be a binary data file.', type=str, nargs='+')
+    parser.add_argument(
+        '--custom_lib', help="custom lib, if you have custom onnxruntime backend you should use this to register you custom op", type=str)
     args = parser.parse_args()
     print("Simplifying...")
-    input_shapes = {}
+    input_shapes = dict()
     if args.input_shape is not None:
         for x in args.input_shape:
-            if ':' not in x:
-                input_shapes[None] = list(map(int, x.split(',')))
-            else:
-                pieces = x.split(':')
-                # for the input name like input:0
-                name, shape = ':'.join(
-                    pieces[:-1]), list(map(int, pieces[-1].split(',')))
-                input_shapes[name] = shape
+            print(x)
+            pieces = x.split(':')
+            # for the input name like input:0
+            name, shape = ':'.join(
+                pieces[:-1]), list(map(int, pieces[-1].split(',')))
+            print(name, shape)
+            input_shapes.update({name: shape})
+
+    input_datas = dict()
+    if args.input_data is not None:
+        for x in args.input_data:
+            print(x)
+            pieces = x.split(':')
+            name, data = pieces[0], pieces[-1]
+            print(name, data)
+            input_datas.update({name: data})
+
+    input_tensors = dict()
+    for name in input_shapes.keys():
+        input_data = np.fromfile(input_datas[name], dtype=np.float32)
+        input_data = input_data.reshape(input_shapes[name])
+        input_tensors.update({name: input_data})
+
     model_opt, check_ok = onnxsim.simplify(
-        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, skip_fuse_bn=not args.enable_fuse_bn, input_shapes=input_shapes, skipped_optimizers=args.skip_optimizer, skip_shape_inference=args.skip_shape_inference)
+        args.input_model,
+        check_n=args.check_n,
+        perform_optimization=not args.skip_optimization,
+        skip_fuse_bn=args.skip_fuse_bn,
+        input_shapes=input_shapes,
+        input_tensors=input_tensors,
+        custom_lib=args.custom_lib,
+        skipped_optimizers=args.skip_optimizer,
+        skip_shape_inference=args.skip_shape_inference)
 
     onnx.save(model_opt, args.output_model)
 
