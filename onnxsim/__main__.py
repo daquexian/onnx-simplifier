@@ -23,8 +23,16 @@ def main():
         '--skip-optimizer', help='Skip a certain ONNX optimizer', type=str, nargs='+')
     parser.add_argument('--skip-shape-inference',
                         help='Skip shape inference. Shape inference causes segfault on some large models', action='store_true')
+    parser.add_argument('--dynamic-input-shape', help='This option enables dynamic input shape support. "Shape" ops will not be eliminated in this case. Note that "--input-shape" is also needed for generating random inputs and checking equality. If "dynamic_input_shape" is False, the input shape in simplified model will be overwritten by the value of "input_shapes" param.', action='store_true')
+            
     args = parser.parse_args()
+
     print("Simplifying...")
+
+    if args.dynamic_input_shape and args.input_shape is None:
+        raise RuntimeError('Please pass "--input-shape" argument for generating random input and checking equality. Run "python3 -m onnxsim -h" for details.')
+    if args.input_shape is not None and not args.dynamic_input_shape:
+        print("Note: The input shape of the simplified model will be overwritten by the value of '--input--shape' argument. Pass '--dynamic-input-shape' if it is not what you want. Run 'python3 -m onnxsim -h' for details.")
     input_shapes = {}
     if args.input_shape is not None:
         for x in args.input_shape:
@@ -37,7 +45,10 @@ def main():
                     pieces[:-1]), list(map(int, pieces[-1].split(',')))
                 input_shapes[name] = shape
     model_opt, check_ok = onnxsim.simplify(
-        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, skip_fuse_bn=args.skip_fuse_bn, input_shapes=input_shapes, skipped_optimizers=args.skip_optimizer, skip_shape_inference=args.skip_shape_inference)
+        args.input_model, check_n=args.check_n, perform_optimization=not args.skip_optimization, 
+        skip_fuse_bn=args.skip_fuse_bn, input_shapes=input_shapes, 
+        skipped_optimizers=args.skip_optimizer, skip_shape_inference=args.skip_shape_inference, 
+        dynamic_input_shape=args.dynamic_input_shape)
 
     onnx.save(model_opt, args.output_model)
 

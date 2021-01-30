@@ -75,9 +75,13 @@ def get_np_type_from_elem_type(elem_type: int) -> np.dtype:
     return size
 
 
+def get_inputs(model: onnx.ModelProto) -> List[onnx.ValueInfoProto]:
+    initializer_names = [x.name for x in model.graph.initializer]
+    return [ipt for ipt in model.graph.input if ipt.name not in initializer_names]
+
+
 def get_input_names(model: onnx.ModelProto) -> List[str]:
-    input_names = list(set([ipt.name for ipt in model.graph.input]) -
-                       set([x.name for x in model.graph.initializer]))
+    input_names = [ipt.name for ipt in get_inputs(model)]
     return input_names
 
 
@@ -111,7 +115,7 @@ def generate_all_rand_input(model, input_shapes: Optional[TensorShapes] = None):
     return generate_specific_rand_input(model, full_input_shapes)
 
 
-def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
+def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) -> List[onnx.NodeProto]:
     const_nodes = []
     const_tensors = [x.name for x in m.graph.initializer]
     const_tensors.extend([node.output[0]
@@ -120,6 +124,8 @@ def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
     # we consider the output of this node doesn't have constant shape,
     # so we do not simplify a such node even if the node is Shape op
     dynamic_tensors = []
+    if dynamic_input_shape:
+        dynamic_tensors.extend(get_input_names(m))
 
     def is_dynamic(node):
         if node.op_type in ['NonMaxSuppression', 'NonZero', 'Unique'] and node.input[0] not in const_tensors:
@@ -129,9 +135,11 @@ def get_constant_nodes(m: onnx.ModelProto) -> List[onnx.NodeProto]:
         if node.op_type in ['Resize'] and ((len(node.input) > 2 and node.input[2] not in const_tensors) or (len(node.input) > 3 and node.input[3] not in const_tensors)):
             return True
         return False
+
     for node in m.graph.node:
         if any(x in dynamic_tensors for x in node.input):
             dynamic_tensors.extend(node.output)
+        # Note "elif" here, only Shape op with non-dynamic input will be seen as const node
         elif node.op_type == 'Shape':
             const_nodes.append(node)
             const_tensors.extend(node.output)
@@ -317,7 +325,7 @@ def infer_shapes(model: onnx.ModelProto) -> onnx.ModelProto:
 def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
              skip_fuse_bn: bool = False, input_shapes: Optional[TensorShapesWithOptionalKey] = None, 
              skipped_optimizers: Optional[Sequence[str]] = None, skip_shape_inference=False, 
-             input_data: Optional[Dict[str, np.ndarray]] = None) \
+             input_data: Optional[Dict[str, np.ndarray]] = None, dynamic_input_shape: bool = False) \
         -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
@@ -325,10 +333,15 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
     :param perform_optimization: Whether to run onnx optimizer on the model
     :param skip_fuse_bn: Skip fuse_bn_into_conv onnx optimizer
     :param input_shapes: If the model has dynamic input shape, user must pass a fixed input shape 
-            since onnxsim doesn't support dynamic input shape
+            for generating random inputs and checking equality. (Also see "dynamic_input_shape" param)
     :param skipped_optimizers: Skip some specific onnx optimizers
     :param skip_shape_inference: Skip shape inference (sometimes shape inference will crash)
     :param input_data: Feed custom input data for checking if needed
+    :param dynamic_input_shape: Indicates whether the input shape should be dynamic. Note that
+            input_shapes is also needed even if dynamic_input_shape is True,
+            the value of input_shapes will be used when generating random inputs for checking equality.
+            If 'dynamic_input_shape' is False, the input shape in simplified model will be overwritten
+            by the value of 'input_shapes' param.
     :return: A tuple (simplified model, success(True) or failed(False))
     """
     if input_shapes is None:
@@ -363,7 +376,7 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
     if perform_optimization:
         model = optimize(model, skip_fuse_bn, skipped_optimizers)
 
-    const_nodes = get_constant_nodes(model)
+    const_nodes = get_constant_nodes(model, dynamic_input_shape=dynamic_input_shape)
     res = forward_for_node_outputs(model, const_nodes, input_shapes=updated_input_shapes, input_data=input_data)
     const_nodes = clean_constant_nodes(const_nodes, res)
     model = eliminate_const_nodes(model, const_nodes, res)
@@ -373,6 +386,14 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
         model = infer_shapes(model)
     if perform_optimization:
         model = optimize(model, skip_fuse_bn, skipped_optimizers)
+
+    # Overwrite model input shape
+    if not dynamic_input_shape:
+        for name, input_shape in updated_input_shapes.items():
+            for ipt in model.graph.input:
+                if ipt.name == name:
+                    for i, dim in enumerate(ipt.type.tensor_type.shape.dim):
+                        dim.dim_value = input_shape[i]
 
     check_ok = check(model_ori, model, check_n, input_shapes=updated_input_shapes)
 
