@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages  # type: ignore
 
 setup(
     name='onnx-simplifier',
@@ -14,7 +14,8 @@ setup(
     keywords='deep-learning ONNX',
     install_requires=[
         'onnx',
-        'onnxruntime >= 1.2.0',
+        'onnxoptimizer >= 0.2.0',
+        'onnxruntime >= 1.6.0',
         'protobuf >= 3.7.0'
     ],
     classifiers=[
