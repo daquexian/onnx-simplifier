@@ -94,7 +94,9 @@ def generate_specific_rand_input(model, input_shapes: TensorShapes):
         if not np.all(np.array(shape) > 0):
             raise RuntimeError(
                 'The shape of input "{}" has dynamic size "{}", '
-                'please determine the input size manually by --input-shape xxx'.format(key, shape))
+                'please determine the input size manually by '
+                '"--dynamic-input-shape --input-shape xxx" or "--input-shape xxx". '
+                'Run "python3 -m onnxsim -h" for details'.format(key, shape))
 
     inputs = {ipt: np.array(np.random.rand(*input_shapes[ipt]),
                             dtype=get_np_type_from_elem_type(get_elem_type(model, ipt))) for ipt in
