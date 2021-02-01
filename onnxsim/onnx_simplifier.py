@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from functools import reduce
 
-from typing import List, Dict, Union, Optional, Tuple, Sequence
+from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
 import copy
 
 import onnx  # type: ignore
@@ -324,6 +324,31 @@ def infer_shapes(model: onnx.ModelProto) -> onnx.ModelProto:
     return model
 
 
+T = TypeVar('T')
+
+def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
+    """
+    Run `func_a` and `func_b` on `x` until func_b(func_a(x)) == x
+    :param x: 
+    :param func_a: A function satisfying func_a(func_a(x)) == func_a(x)
+    :param func_b: A function satisfying func_b(func_b(x)) == func_b(x)
+    :return: the x that satisfies func_b(func_a(x)) == x
+    """
+    x = func_b(func_a(x))
+    while True:
+        y = func_a(x)
+        if y == x:
+            # Since func_b(func_b(x)) == func_b(x), 
+            # we are already at the fixed point if
+            # `y == x`
+            return x
+        x = y
+        y = func_b(x)
+        if y == x:
+            return x
+        x = y
+
+
 def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optimization: bool = True,
              skip_fuse_bn: bool = False, input_shapes: Optional[TensorShapesWithOptionalKey] = None, 
              skipped_optimizers: Optional[Sequence[str]] = None, skip_shape_inference=False, 
@@ -353,10 +378,9 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
 
     if type(model) == str:
         model = onnx.load(model)
+    assert(isinstance(model, onnx.ModelProto))
     onnx.checker.check_model(model)
     model_ori = copy.deepcopy(model)
-    if not skip_shape_inference:
-        model = infer_shapes(model)
 
     input_names = get_input_names(model)
     for input_name, data in input_data.items():
@@ -375,19 +399,22 @@ def simplify(model: Union[str, onnx.ModelProto], check_n: int = 0, perform_optim
 
     updated_input_shapes = check_and_update_input_shapes(model, input_shapes)
 
-    if perform_optimization:
-        model = optimize(model, skip_fuse_bn, skipped_optimizers)
+    def infer_shapes_and_optimize(model: onnx.ModelProto) -> onnx.ModelProto:
+        if not skip_shape_inference:
+            model = infer_shapes(model)
+        if perform_optimization:
+            model = optimize(model, skip_fuse_bn, skipped_optimizers)
+        return model
 
-    const_nodes = get_constant_nodes(model, dynamic_input_shape=dynamic_input_shape)
-    res = forward_for_node_outputs(model, const_nodes, input_shapes=updated_input_shapes, input_data=input_data)
-    const_nodes = clean_constant_nodes(const_nodes, res)
-    model = eliminate_const_nodes(model, const_nodes, res)
-    onnx.checker.check_model(model)
+    def constant_folding(model: onnx.ModelProto) -> onnx.ModelProto:
+        const_nodes = get_constant_nodes(model, dynamic_input_shape=dynamic_input_shape)
+        res = forward_for_node_outputs(model, const_nodes, input_shapes=updated_input_shapes, input_data=input_data)
+        const_nodes = clean_constant_nodes(const_nodes, res)
+        model = eliminate_const_nodes(model, const_nodes, res)
+        onnx.checker.check_model(model)
+        return model
 
-    if not skip_shape_inference:
-        model = infer_shapes(model)
-    if perform_optimization:
-        model = optimize(model, skip_fuse_bn, skipped_optimizers)
+    model = fixed_point(model, infer_shapes_and_optimize, constant_folding)
 
     # Overwrite model input shape
     if not dynamic_input_shape:
