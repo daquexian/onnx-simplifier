@@ -15,7 +15,7 @@ setup(
     install_requires=[
         'onnx',
         'onnxoptimizer >= 0.2.0',
-        'onnxruntime-noopenmp >= 1.6.0',
+        'onnxruntime >= 1.6.0',
         'protobuf >= 3.7.0'
     ],
     classifiers=[
