@@ -14,7 +14,7 @@ import onnxoptimizer  # type: ignore
 import numpy as np  # type: ignore
 import os.path
 
-Tensors = Dict[Optional[str], np.array]
+Tensors = Dict[str, np.array]
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
 TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
@@ -156,7 +156,7 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
 
 
 def forward(model,
-            input_data: Dict[Tensors] = None,
+            input_data: Optional[Tensors] = None,
             input_shapes: Optional[TensorShapes] = None,
             custom_lib: Optional[str] = None) -> Dict[str, np.ndarray]:
     if input_shapes is None:
@@ -192,7 +192,7 @@ def forward(model,
 def forward_for_node_outputs(model: onnx.ModelProto,
                              nodes: List[onnx.NodeProto],
                              input_shapes: Optional[TensorShapes] = None,
-                             input_data: Dict[Tensors] = None,
+                             input_data: Optional[Tensors] = None,
                              custom_lib: Optional[str] = None) -> Dict[str, np.ndarray]:
     if input_shapes is None:
         input_shapes = {}
@@ -374,10 +374,10 @@ def simplify(model: Union[str, onnx.ModelProto],
              perform_optimization: bool = True,
              skip_fuse_bn: bool = False,
              input_shapes: Optional[TensorShapesWithOptionalKey] = None,
-             skipped_optimizers: Optional[Sequence[str]] = None,
-             skip_shape_inference: bool = False,
              input_data: Optional[Tensors] = None,
              custom_lib: Optional[str] = None,
+             skipped_optimizers: Optional[Sequence[str]] = None,
+             skip_shape_inference: bool = False,
              dynamic_input_shape: bool = False) \
         -> Tuple[onnx.ModelProto, bool]:
     """

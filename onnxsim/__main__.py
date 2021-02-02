@@ -67,7 +67,7 @@ def main():
         perform_optimization=not args.skip_optimization,
         skip_fuse_bn=args.skip_fuse_bn,
         input_shapes=input_shapes,
-        input_tensors=input_tensors,
+        input_data=input_tensors,
         custom_lib=args.custom_lib,
         skipped_optimizers=args.skip_optimizer,
         skip_shape_inference=args.skip_shape_inference,
