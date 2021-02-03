@@ -138,6 +138,12 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
             return True
         return False
 
+    def has_subgraph_in_node(node: onnx.NodeProto):
+        for attr in node.attribute:
+            if attr.type in [onnx.AttributeProto.GRAPH, onnx.AttributeProto.GRAPHS]:
+                return True
+        return False
+
     for node in m.graph.node:
         if any(x in dynamic_tensors for x in node.input):
             dynamic_tensors.extend(node.output)
@@ -147,6 +153,10 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
             const_tensors.extend(node.output)
         elif is_dynamic(node):
             dynamic_tensors.extend(node.output)
+        elif has_subgraph_in_node(node):
+            # Skip this node if this node has subgraph in it
+            # TODO: optimize "If" node with const cond in onnx optimizer
+            pass
         elif all([x in const_tensors for x in node.input]):
             const_nodes.append(node)
             const_tensors.extend(node.output)
