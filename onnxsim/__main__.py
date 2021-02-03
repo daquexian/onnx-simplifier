@@ -52,14 +52,14 @@ def main():
                 input_shapes.update({name: shape})
 
     input_data_paths = dict()
-    if len(args.input_data_path) > 0:
+    if args.input_data_path is not None:
         for x in args.input_data_path:
             pieces = x.split(':')
             name, data = ':'.join(pieces[:-1]), pieces[-1]
             input_data_paths.update({name: data})
 
     input_tensors = dict()
-    if len(args.input_data_path) > 0 and args.input_shape is not None:
+    if args.input_data_path is not None and args.input_shape is not None:
         for name in input_shapes.keys():
             input_data = np.fromfile(input_data_paths[name], dtype=np.float32)
             input_data = input_data.reshape(input_shapes[name])
