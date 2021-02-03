@@ -26,7 +26,7 @@ def main():
                         help='Skip shape inference. Shape inference causes segfault on some large models', action='store_true')
     parser.add_argument('--dynamic-input-shape', help='This option enables dynamic input shape support. "Shape" ops will not be eliminated in this case. Note that "--input-shape" is also needed for generating random inputs and checking equality. If "dynamic_input_shape" is False, the input shape in simplified model will be overwritten by the value of "input_shapes" param.', action='store_true')
     parser.add_argument(
-        '--input-data', help='input data, The value should be "input_name1:xxx1.bin  input_name2:xxx2.bin ...", input data should be a binary data file.', type=str, nargs='+')
+        '--input-data-path', help='input data, The value should be "input_name1:xxx1.bin"  "input_name2:xxx2.bin ...", input data should be a binary data file.', type=str, nargs='+')
     parser.add_argument(
         '--custom-lib', help="custom lib path which should be absolute path, if you have custom onnxruntime backend you should use this to register you custom op", type=str)
 
@@ -52,14 +52,14 @@ def main():
                 input_shapes.update({name: shape})
 
     input_datas = dict()
-    if args.input_data is not None:
-        for x in args.input_data:
+    if len(args.input_data_path) > 0:
+        for x in args.input_data_path:
             pieces = x.split(':')
-            name, data = pieces[0], pieces[-1]
+            name, data = ':'.join(pieces[:-1]), pieces[-1]
             input_datas.update({name: data})
 
     input_tensors = dict()
-    if args.input_data is not None and atgs.input_shape is not None:
+    if len(args.input_data_path) > 0 and args.input_shape is not None:
         for name in input_shapes.keys():
             input_data = np.fromfile(input_datas[name], dtype=np.float32)
             input_data = input_data.reshape(input_shapes[name])

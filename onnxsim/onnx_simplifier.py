@@ -13,6 +13,7 @@ import onnxoptimizer  # type: ignore
 
 import numpy as np  # type: ignore
 import os
+import sys
 
 Tensors = Dict[str, np.ndarray]
 TensorShape = List[int]
@@ -165,6 +166,9 @@ def forward(model,
     if custom_lib is not None:
         if os.path.exists(custom_lib):
             sess_options.register_custom_ops_library(custom_lib)
+        else:
+            print("No such file '{}'".format(custom_lib), file=sys.stderr)
+            exit(0)
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
     sess_options.log_severity_level = 3
     sess = rt.InferenceSession(model.SerializeToString(
