@@ -59,7 +59,7 @@ def main():
             input_data_paths.update({name: data})
 
     input_tensors = dict()
-    if args.input_data_path is not None and args.input_shape is not None:
+    if len(input_data_paths) > 0 and args.input_shape is not None:
         for name in input_shapes.keys():
             input_data = np.fromfile(input_data_paths[name], dtype=np.float32)
             input_data = input_data.reshape(input_shapes[name])
