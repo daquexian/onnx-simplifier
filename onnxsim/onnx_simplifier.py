@@ -178,7 +178,7 @@ def forward(model,
             sess_options.register_custom_ops_library(custom_lib)
         else:
             print("No such file '{}'".format(custom_lib), file=sys.stderr)
-            exit(0)
+            exit(1)
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
     sess_options.log_severity_level = 3
     sess = rt.InferenceSession(model.SerializeToString(
