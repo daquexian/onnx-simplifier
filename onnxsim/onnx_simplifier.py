@@ -362,7 +362,8 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
     :param func_b: A function satisfying func_b(func_b(x)) == func_b(x)
     :return: the x that satisfies func_b(func_a(x)) == x
     """
-    x = func_b(func_a(x))
+    x = func_a(x)
+    x = func_b(x)
     while True:
         y = func_a(x)
         if y == x:
@@ -436,11 +437,17 @@ def simplify(model: Union[str, onnx.ModelProto],
     updated_input_shapes = check_and_update_input_shapes(model, input_shapes)
 
     def infer_shapes_and_optimize(model: onnx.ModelProto) -> onnx.ModelProto:
-        if not skip_shape_inference:
-            model = infer_shapes(model)
-        if perform_optimization:
-            model = optimize(model, skip_fuse_bn, skipped_optimizers)
-        return model
+        def infer_shapes_if_applicable(model: onnx.ModelProto) -> onnx.ModelProto:
+            if not skip_shape_inference:
+                model = infer_shapes(model)
+            return model
+
+        def optimize_if_applicable(model: onnx.ModelProto) -> onnx.ModelProto:
+            if perform_optimization:
+                model = optimize(model, skip_fuse_bn, skipped_optimizers)
+            return model
+
+        return fixed_point(model, infer_shapes_if_applicable, optimize_if_applicable)
 
     def constant_folding(model: onnx.ModelProto) -> onnx.ModelProto:
         const_nodes = get_constant_nodes(
