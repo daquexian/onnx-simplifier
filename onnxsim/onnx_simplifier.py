@@ -120,11 +120,21 @@ def generate_all_rand_input(model, input_shapes: Optional[TensorShapes] = None):
     return generate_specific_rand_input(model, full_input_shapes)
 
 
+def is_non_deterministic_node(node: onnx.NodeProto) -> bool:
+    # TODO: handle node with subgraph
+    return node.op_type in ['RandomNormal', 'RandomNormalLike', 'RandomUniform', 'RandomUniformLike']
+
+
+def is_non_deterministic_model(model: onnx.ModelProto) -> bool:
+    return any([is_non_deterministic_node(node) for node in model.graph.node])
+
+
 def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) -> List[onnx.NodeProto]:
     const_nodes = []
     const_tensors = [x.name for x in m.graph.initializer]
     const_tensors.extend([node.output[0]
                           for node in m.graph.node if node.op_type == 'Constant'])
+
     # The output shape of some node types is determined by the input value
     # we consider the output of this node doesn't have constant shape,
     # so we do not simplify a such node even if the node is Shape op
@@ -158,9 +168,9 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
             dynamic_tensors.extend(node.output)
         elif has_subgraph_in_node(node):
             # Skip this node if this node has subgraph in it
-            # TODO: optimize "If" node with const cond in onnx optimizer
+            # "If" node with const cond will be eliminated by onnxoptimizer
             pass
-        elif all([x in const_tensors for x in node.input]):
+        elif all([x in const_tensors for x in node.input]) and not is_non_deterministic_node(node):
             const_nodes.append(node)
             const_tensors.extend(node.output)
     return copy.deepcopy(const_nodes)
@@ -296,6 +306,11 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
     if input_shapes is None:
         input_shapes = {}
     onnx.checker.check_model(model_opt)
+
+    if is_non_deterministic_model(model_ori) and n_times > 0:
+        print("The model has random ops like RandomNormal. Skip checking..")
+        n_times = 0
+
     for i in range(n_times):
         print("Checking {}/{}...".format(i, n_times))
         rand_input = generate_all_rand_input(
