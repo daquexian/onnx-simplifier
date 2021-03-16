@@ -98,3 +98,9 @@ assert check, "Simplified ONNX model could not be validated"
 ```
 
 You can see more details of the API in [onnxsim/\_\_main\_\_.py](onnxsim/__main__.py)
+
+## Chat
+
+We created a Chinese QQ group for ONNX!
+
+ONNX QQ Group (Chinese): 1021964010, verification code: nndab
