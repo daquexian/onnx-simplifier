@@ -15,6 +15,8 @@ import numpy as np  # type: ignore
 import os
 import sys
 
+from .remove_add import eliminate_zero_add
+
 Tensors = Dict[str, np.ndarray]
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
@@ -402,6 +404,7 @@ def simplify(model: Union[str, onnx.ModelProto],
              skip_shape_inference=False,
              input_data: Optional[Tensors] = None,
              dynamic_input_shape: bool = False,
+             rm_zero_add: bool = False,
              custom_lib: Optional[str] = None) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
@@ -478,7 +481,6 @@ def simplify(model: Union[str, onnx.ModelProto],
         return model
 
     model = fixed_point(model, infer_shapes_and_optimize, constant_folding)
-
     # Overwrite model input shape
     if not dynamic_input_shape:
         for name, input_shape in updated_input_shapes.items():
@@ -486,7 +488,8 @@ def simplify(model: Union[str, onnx.ModelProto],
                 if ipt.name == name:
                     for i, dim in enumerate(ipt.type.tensor_type.shape.dim):
                         dim.dim_value = input_shape[i]
-
+    if rm_zero_add:
+        model = eliminate_zero_add(model)
     check_ok = check(model_ori, model, check_n,
                      input_shapes=updated_input_shapes)
 
