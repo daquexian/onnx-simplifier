@@ -166,6 +166,9 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
             const_tensors.extend(node.output)
         elif is_dynamic(node):
             dynamic_tensors.extend(node.output)
+        elif node.op_type in ['DequantizeLinear', 'QuantizeLinear']:
+            # Skip QuantizeLinear and DequantizeLinear to preserve quantization info
+            pass
         elif has_subgraph_in_node(node):
             # Skip this node if this node has subgraph in it
             # "If" node with const cond will be eliminated by onnxoptimizer
