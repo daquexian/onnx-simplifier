@@ -281,8 +281,8 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
     onnx.checker.check_model(model)
     onnx.helper.strip_doc_string(model)
     optimizers_list = onnxoptimizer.get_fuse_and_elimination_passes()
-    if not skip_fuse_bn:
-        optimizers_list.append('fuse_bn_into_conv')
+    if skip_fuse_bn:
+        optimizers_list.remove('fuse_bn_into_conv')
     if skipped_optimizers is not None:
         for opt in skipped_optimizers:
             try:
