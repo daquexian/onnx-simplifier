@@ -38,7 +38,7 @@ def main():
         raise RuntimeError(
             'Please pass "--input-shape" argument for generating random input and checking equality. Run "python3 -m onnxsim -h" for details.')
     if args.input_shape is not None and not args.dynamic_input_shape:
-        print("Note: The input shape of the simplified model will be overwritten by the value of '--input--shape' argument. Pass '--dynamic-input-shape' if it is not what you want. Run 'python3 -m onnxsim -h' for details.")
+        print("Note: The input shape of the simplified model will be overwritten by the value of '--input-shape' argument. Pass '--dynamic-input-shape' if it is not what you want. Run 'python3 -m onnxsim -h' for details.")
     input_shapes = dict()
     if args.input_shape is not None:
         for x in args.input_shape:

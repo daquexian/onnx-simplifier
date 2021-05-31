@@ -345,7 +345,7 @@ def clean_constant_nodes(const_nodes: List[onnx.NodeProto], res: Tensors):
     return [node for node in const_nodes if node.output[0] in res]
 
 
-def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorShapesWithOptionalKey) -> TensorShapes:
+def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorShapesWithOptionalKey, dynamic_input_shape: bool) -> TensorShapes:
     input_names = get_input_names(model)
     if None in input_shapes:
         if len(input_names) == 1:
@@ -358,6 +358,15 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorSh
         if x not in input_names:
             raise RuntimeError(
                 'The model doesn\'t have input named "{}"'.format(x))
+
+    # Overwrite model input shape
+    if not dynamic_input_shape:
+        for name, input_shape in input_shapes.items():
+            for ipt in model.graph.input:
+                if ipt.name == name:
+                    for i, dim in enumerate(ipt.type.tensor_type.shape.dim):
+                        dim.dim_value = input_shape[i]
+
     return input_shapes  # type: ignore
 
 
@@ -452,7 +461,7 @@ def simplify(model: Union[str, onnx.ModelProto],
         elif input_name not in input_shapes:
             input_shapes[input_name] = shape
 
-    updated_input_shapes = check_and_update_input_shapes(model, input_shapes)
+    updated_input_shapes = check_and_update_input_shapes(model, input_shapes, dynamic_input_shape)
 
     def infer_shapes_and_optimize(model: onnx.ModelProto) -> onnx.ModelProto:
         def infer_shapes_if_applicable(model: onnx.ModelProto) -> onnx.ModelProto:
@@ -481,14 +490,6 @@ def simplify(model: Union[str, onnx.ModelProto],
         return model
 
     model = fixed_point(model, infer_shapes_and_optimize, constant_folding)
-
-    # Overwrite model input shape
-    if not dynamic_input_shape:
-        for name, input_shape in updated_input_shapes.items():
-            for ipt in model.graph.input:
-                if ipt.name == name:
-                    for i, dim in enumerate(ipt.type.tensor_type.shape.dim):
-                        dim.dim_value = input_shape[i]
 
     check_ok = check(model_ori, model, check_n,
                      input_shapes=updated_input_shapes)
