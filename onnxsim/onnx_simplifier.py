@@ -129,7 +129,8 @@ def is_non_deterministic_model(model: onnx.ModelProto) -> bool:
     return any([is_non_deterministic_node(node) for node in model.graph.node])
 
 
-def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) -> List[onnx.NodeProto]:
+def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False,custom_op: Optional[str] = None) -> List[onnx.NodeProto]:
+    custom_op_print=False
     const_nodes = []
     const_tensors = [x.name for x in m.graph.initializer]
     const_tensors.extend([node.output[0]
@@ -169,6 +170,13 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
         elif node.op_type in ['DequantizeLinear', 'QuantizeLinear']:
             # Skip QuantizeLinear and DequantizeLinear to preserve quantization info
             pass
+        elif custom_op and node.op_type in custom_op:
+            if not custom_op_print:
+                print(f'\nSkipping optimization for custom op: {node.op_type}\n\n'
+                      f'Using the parameter "custom_lib", You can enable custom onnx runtime op in simplifyer\n'
+                      f'For more information please see the documentation with:\n'
+                      f'python3 -m onnxsim -h\n')
+                custom_op_print = True
         elif has_subgraph_in_node(node):
             # Skip this node if this node has subgraph in it
             # "If" node with const cond will be eliminated by onnxoptimizer
@@ -414,7 +422,8 @@ def simplify(model: Union[str, onnx.ModelProto],
              skip_shape_inference=False,
              input_data: Optional[Tensors] = None,
              dynamic_input_shape: bool = False,
-             custom_lib: Optional[str] = None) -> Tuple[onnx.ModelProto, bool]:
+             custom_lib: Optional[str] = None,
+             custom_op: Optional[str] = None) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
     :param check_n: The simplified model will be checked for `check_n` times by random inputs
@@ -431,6 +440,7 @@ def simplify(model: Union[str, onnx.ModelProto],
             If 'dynamic_input_shape' is False, the input shape in simplified model will be overwritten
             by the value of 'input_shapes' param.
     :param custom_lib: onnxruntime custom ops's shared library
+    :param custom_op: A list of custom op name to skip simplify
     :return: A tuple (simplified model, success(True) or failed(False))
     """
     if input_shapes is None:
@@ -478,7 +488,7 @@ def simplify(model: Union[str, onnx.ModelProto],
 
     def constant_folding(model: onnx.ModelProto) -> onnx.ModelProto:
         const_nodes = get_constant_nodes(
-            model, dynamic_input_shape=dynamic_input_shape)
+            model, dynamic_input_shape=dynamic_input_shape, custom_op=custom_op)
         res = forward_for_node_outputs(model,
                                        const_nodes,
                                        input_shapes=updated_input_shapes,
