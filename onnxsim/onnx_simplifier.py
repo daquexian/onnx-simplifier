@@ -297,7 +297,7 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
 
 
 def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int = 5,
-          input_shapes: Optional[TensorShapes] = None) -> bool:
+          input_shapes: Optional[TensorShapes] = None, custom_lib: Optional[str] = None) -> bool:
     """
     Warning: Some models (e.g., MobileNet) may fail this check by a small magnitude.
     Just ignore if it happens.
@@ -318,8 +318,8 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
         print("Checking {}/{}...".format(i, n_times))
         rand_input = generate_all_rand_input(
             model_opt, input_shapes=input_shapes)
-        res_opt = forward(model_opt, input_data=rand_input)
-        res_ori = forward(model_ori, input_data=rand_input)
+        res_opt = forward(model_opt, input_data=rand_input, custom_lib=custom_lib)
+        res_ori = forward(model_ori, input_data=rand_input, custom_lib=custom_lib)
 
         for name in res_opt.keys():
             if not np.allclose(res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5):
@@ -492,6 +492,6 @@ def simplify(model: Union[str, onnx.ModelProto],
     model = fixed_point(model, infer_shapes_and_optimize, constant_folding)
 
     check_ok = check(model_ori, model, check_n,
-                     input_shapes=updated_input_shapes)
+                     input_shapes=updated_input_shapes, custom_lib=custom_lib)
 
     return model, check_ok
