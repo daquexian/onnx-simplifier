@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from functools import reduce
+from tempfile import gettempdir
 
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
 import copy
@@ -179,6 +180,41 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
     return copy.deepcopy(const_nodes)
 
 
+def serialize_model(model_proto: onnx.ModelProto) -> Union[bytes, str]:
+    """
+    Carefully serializes ONNX ModelProto.
+    ModelProto.SerializeToString() will fail if given model > 2GB,
+    in this case we should save model to disk and return path.
+    :param model_proto: ModelProto which will be serilized.
+    :return: bytes if the model size less than 2GB, otherwise the path to file (str) with the serialized model.
+    """
+    try:
+        return model_proto.SerializeToString()
+    except ValueError:
+        path = f'{gettempdir()}/exported_model.onnx'
+        onnx.save_model(
+            proto=model_proto,
+            f=path,
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+        )
+        return path
+
+
+def check_model(model_proto: onnx.ModelProto) -> None:
+    """
+    Carefully checks ONNX ModelProto.
+    onnx.checker.check_model(loaded_onnx_model) will fail if given model > 2GB,
+    in this case we skip model checking, because I/O too expensive.
+    :param model_proto: ModelProto which will be checked.
+    """
+    try:
+        onnx.checker.check_model(model_proto)
+    except ValueError:
+        # It is too expensive to save the model to disk each time.
+        pass
+
+
 def forward(model,
             input_data: Optional[Tensors] = None,
             input_shapes: Optional[TensorShapes] = None,
@@ -194,8 +230,8 @@ def forward(model,
             exit(1)
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
     sess_options.log_severity_level = 3
-    sess = rt.InferenceSession(model.SerializeToString(
-    ), sess_options=sess_options, providers=['CPUExecutionProvider'])
+    sess = rt.InferenceSession(serialize_model(model),
+                               sess_options=sess_options, providers=['CPUExecutionProvider'])
 
     input_names = get_input_names(model)
     inputs = {}
@@ -278,7 +314,7 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
     and eliminate unused constants.
     """
 
-    onnx.checker.check_model(model)
+    check_model(model)
     onnx.helper.strip_doc_string(model)
     optimizers_list = onnxoptimizer.get_fuse_and_elimination_passes()
     if skip_fuse_bn:
@@ -292,7 +328,7 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
 
     model = onnxoptimizer.optimize(model, optimizers_list,
                                    fixed_point=True)
-    onnx.checker.check_model(model)
+    check_model(model)
     return model
 
 
@@ -308,7 +344,7 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int =
     """
     if input_shapes is None:
         input_shapes = {}
-    onnx.checker.check_model(model_opt)
+    check_model(model_opt)
 
     if is_non_deterministic_model(model_ori) and n_times > 0:
         print("The model has random ops like RandomNormal. Skip checking..")
@@ -441,7 +477,7 @@ def simplify(model: Union[str, onnx.ModelProto],
     if type(model) == str:
         model = onnx.load(model)
     assert(isinstance(model, onnx.ModelProto))
-    onnx.checker.check_model(model)
+    check_model(model)
     model_ori = copy.deepcopy(model)
 
     input_names = get_input_names(model)
@@ -486,7 +522,7 @@ def simplify(model: Union[str, onnx.ModelProto],
                                        custom_lib=custom_lib)
         const_nodes = clean_constant_nodes(const_nodes, res)
         model = eliminate_const_nodes(model, const_nodes, res)
-        onnx.checker.check_model(model)
+        check_model(model)
         return model
 
     model = fixed_point(model, infer_shapes_and_optimize, constant_folding)
