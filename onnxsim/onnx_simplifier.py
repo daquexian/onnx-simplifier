@@ -69,8 +69,8 @@ def get_elem_type(m: onnx.ModelProto, name: str) -> int:
     raise RuntimeError('Cannot get shape dtype "{}"'.format(name))
 
 
-def get_np_type_from_elem_type(elem_type: int) -> np.dtype:
-    sizes = (None, np.float32, np.uint8, np.int8, np.uint16, np.int16, np.int32, np.int64, str, np.bool,
+def get_np_type_from_elem_type(elem_type: int):
+    sizes = (None, np.float32, np.uint8, np.int8, np.uint16, np.int16, np.int32, np.int64, str, bool,
              np.float16, np.double, np.uint32, np.uint64, np.complex64, np.complex128, np.float16)
     assert len(sizes) == 17
     size = sizes[elem_type]
@@ -324,7 +324,7 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int,
         for name in res_opt.keys():
             if not np.allclose(res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5):
                 print("Tensor {} changes after simplifying. The max diff is {}.".format(
-                    name, np.max(np.abs(res_opt[name] - res_ori[name]))))
+                    name, np.max(np.abs(res_opt[name] - res_ori[name])))) # type: ignore
                 print("Note that the checking is not always correct.")
                 print("After simplifying:")
                 print(res_opt[name])
