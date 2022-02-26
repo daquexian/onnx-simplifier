@@ -1,3 +1,5 @@
+name: onnxsim ci
+on: [push]
 jobs:
   build:
     runs-on: ${{ matrix.os }}
