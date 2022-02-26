@@ -19,10 +19,11 @@ jobs:
           pip install -U pip
           python --version
           pip --version
-      - name: Install onnxsim and PyTorch
+      - name: Install pytest, onnxsim and PyTorch
         run: |
           python setup.py install
           pip install torch==1.10.2+cpu torchvision==0.11.3+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+          pip install pytest
       - name: Run tests
         run: pytest
         working-directory: tests/
