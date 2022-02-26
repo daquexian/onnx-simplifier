@@ -296,7 +296,7 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
     return model
 
 
-def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int = 5,
+def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int,
           input_shapes: Optional[TensorShapes] = None, custom_lib: Optional[str] = None) -> bool:
     """
     Warning: Some models (e.g., MobileNet) may fail this check by a small magnitude.

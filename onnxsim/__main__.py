@@ -11,7 +11,7 @@ def main():
     parser.add_argument('input_model', help='Input ONNX model')
     parser.add_argument('output_model', help='Output ONNX model')
     parser.add_argument('check_n', help='Check whether the output is correct with n random inputs',
-                        nargs='?', type=int, default=3)
+                        nargs='?', type=int, default=0)
     parser.add_argument('--enable-fuse-bn', help='This option is deprecated. Fusing bn into conv is enabled by default.',
                         action='store_true')
     parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.',
@@ -24,7 +24,7 @@ def main():
         '--skip-optimizer', help='Skip a certain ONNX optimizer', type=str, nargs='+')
     parser.add_argument('--skip-shape-inference',
                         help='Skip shape inference. Shape inference causes segfault on some large models', action='store_true')
-    parser.add_argument('--dynamic-input-shape', help='This option enables dynamic input shape support. "Shape" ops will not be eliminated in this case. Note that "--input-shape" is also needed for generating random inputs and checking equality. If "dynamic_input_shape" is False, the input shape in simplified model will be overwritten by the value of "input_shapes" param.', action='store_true')
+    parser.add_argument('--dynamic-input-shape', help='This option enables dynamic input shape support. "Shape" ops will not be eliminated in this case. If `--dynamic_input_shape` is not specified and `--input-shape` is specified, the input shape in simplified model will be overwritten by the value of `--input_shape`. Note that if you want to check the simplication correctness (i.e. `check_n` > 0), "--input-shape" is also needed for generating random inputs and checking equality.', action='store_true')
     parser.add_argument(
         '--input-data-path', help='input data, The value should be "input_name1:xxx1.bin"  "input_name2:xxx2.bin ...", input data should be a binary data file.', type=str, nargs='+')
     parser.add_argument(
@@ -34,9 +34,9 @@ def main():
 
     print("Simplifying...")
 
-    if args.dynamic_input_shape and args.input_shape is None:
+    if args.dynamic_input_shape and args.input_shape is None and args.check_n > 0:
         raise RuntimeError(
-            'Please pass "--input-shape" argument for generating random input and checking equality. Run "python3 -m onnxsim -h" for details.')
+            'Please pass "--input-shape" argument for generating random input to check correctness. Run "python3 -m onnxsim -h" for details.')
     if args.input_shape is not None and not args.dynamic_input_shape:
         print("Note: The input shape of the simplified model will be overwritten by the value of '--input-shape' argument. Pass '--dynamic-input-shape' if it is not what you want. Run 'python3 -m onnxsim -h' for details.")
     input_shapes = dict()
@@ -82,7 +82,7 @@ def main():
     if check_ok:
         print("Ok!")
     else:
-        print("Check failed, please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
+        print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
         sys.exit(1)
 
 
