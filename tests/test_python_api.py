@@ -1,10 +1,12 @@
 import io
 from typing import Any
+import os
 
 import torch
 import onnx
 import onnxsim
 import torchvision as tv
+import pytest
 
 
 def export_simplify_and_check(m: torch.nn.Module, input: Any, *args, **kwargs):
@@ -31,6 +33,7 @@ def test_just_reshape():
     assert len(sim_model.graph.node) == 1
 
 
+@pytest.mark.skipif("ONNXSIM_CI" in os.environ, "memory limited")
 def test_torchvision_fasterrcnn_fpn():
     model = tv.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
     x = [torch.rand(3, 300, 400), torch.rand(3, 500, 400)]
@@ -63,6 +66,7 @@ def test_torchvision_mnasnet():
     export_simplify_and_check(model, x)
 
 
+@pytest.mark.skipif("ONNXSIM_CI" in os.environ, "memory limited")
 def test_torchvision_deeplabv3():
     model = tv.models.segmentation.deeplabv3_resnet50(pretrained=False)
     x = torch.rand(1, 3, 224, 224)
