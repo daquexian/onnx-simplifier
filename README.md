@@ -57,13 +57,13 @@ pip3 install -U pip && pip3 install onnx-simplifier
 Then
 
 ```
-python3 -m onnxsim input_onnx_model output_onnx_model
+onnxsim input_onnx_model output_onnx_model
 ```
 
 For more functions like skipping optimization and setting input shape manually (when input shape is dynamic itself), try the following command for help message
 
 ```
-python3 -m onnxsim -h
+onnxsim -h
 ```
 
 ### Web version
@@ -97,7 +97,7 @@ assert check, "Simplified ONNX model could not be validated"
 # use model_simp as a standard ONNX model object
 ```
 
-You can see more details of the API in [onnxsim/\_\_main\_\_.py](onnxsim/__main__.py)
+You can see more details of the API in [onnxsim/onnx_simplifier.py](onnxsim/onnx_simplifier.py)
 
 ## Chat
 
