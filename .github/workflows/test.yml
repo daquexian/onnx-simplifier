@@ -1,5 +1,7 @@
 name: onnxsim ci
 on: [push]
+env:
+  ONNXSIM_CI: 1
 jobs:
   build:
     runs-on: ${{ matrix.os }}

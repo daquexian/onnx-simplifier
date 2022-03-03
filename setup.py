@@ -30,5 +30,10 @@ setup(
         'Topic :: Scientific/Engineering',
         'Topic :: Software Development'
     ],
-    python_requires='>=3.6'
+    python_requires='>=3.6',
+    entry_points={
+        'console_scripts': [
+            'onnxsim=onnxsim:main',
+        ],
+    },
 )
