@@ -42,7 +42,7 @@ def test_just_reshape():
     assert len(sim_model.graph.node) == 1
 
 
-@pytest.mark.skipif("ONNXSIM_CI" in os.environ, "memory limited")
+@pytest.mark.skipif("ONNXSIM_CI" in os.environ, reason="memory limited")
 def test_torchvision_fasterrcnn_fpn():
     model = tv.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
     x = [torch.rand(3, 300, 400), torch.rand(3, 500, 400)]
@@ -57,7 +57,7 @@ def test_torchvision_maskrcnn_fpn_opset11():
 
 
 # keypointrcnn is only supported in opset 11 and higher
-@pytest.mark.skipif("ONNXSIM_CI" in os.environ, "memory limited")
+@pytest.mark.skipif("ONNXSIM_CI" in os.environ, reason="memory limited")
 def test_torchvision_keypointrcnn_fpn():
     model = tv.models.detection.keypointrcnn_resnet50_fpn(pretrained=False)
     x = [torch.rand(3, 300, 400), torch.rand(3, 500, 400)]
@@ -76,7 +76,7 @@ def test_torchvision_mnasnet():
     export_simplify_and_check_by_python_api(model, x)
 
 
-@pytest.mark.skipif("ONNXSIM_CI" in os.environ, "memory limited")
+@pytest.mark.skipif("ONNXSIM_CI" in os.environ, reason="memory limited")
 def test_torchvision_deeplabv3():
     model = tv.models.segmentation.deeplabv3_resnet50(pretrained=False)
     x = torch.rand(1, 3, 224, 224)
