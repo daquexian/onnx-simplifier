@@ -179,7 +179,7 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
     return copy.deepcopy(const_nodes)
 
 
-def forward(model,
+def forward(model: onnx.ModelProto,
             input_data: Optional[Tensors] = None,
             input_shapes: Optional[TensorShapes] = None,
             custom_lib: Optional[str] = None) -> Tensors:
@@ -438,7 +438,7 @@ def simplify(model: Union[str, onnx.ModelProto],
     if input_data is None:
         input_data = {}
 
-    if type(model) == str:
+    if isinstance(model, str):
         model = onnx.load(model)
     assert(isinstance(model, onnx.ModelProto))
     onnx.checker.check_model(model)
