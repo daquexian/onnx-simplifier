@@ -20,6 +20,11 @@ TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
 TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
 
+class Config:
+    dynamic_input_shape: bool
+
+config = Config()
+
 def has_subgraph_in_node(node: onnx.NodeProto):
     for attr in node.attribute:
         if attr.type in [onnx.AttributeProto.GRAPH, onnx.AttributeProto.GRAPHS]:
@@ -109,11 +114,17 @@ def generate_specific_rand_input(model, input_shapes: TensorShapes):
     """
 
     for key, shape in input_shapes.items():
-        if not np.all(np.array(shape) > 0):
+        shape_np = np.array(shape)
+        if not np.all(shape_np > 0):
+            # treat batch size as 1 automatically if dynamic_input_shape is True
+            if config.dynamic_input_shape and len(shape_np) >= 3 and np.all(shape_np[1:] > 0):
+                input_shapes[key] = [1] + shape[1:]
+                continue
+                
             raise RuntimeError(
                 'The shape of input "{}" has dynamic size "{}", '
-                'please determine the input size manually by '
-                '"--dynamic-input-shape --input-shape xxx" or "--input-shape xxx". '
+                'please try "--dynamic-input-shape" or determine '
+                'the input size manually by "--input-shape xxx". '
                 'Run "python3 -m onnxsim -h" for details'.format(key, shape))
 
     inputs = {ipt: np.array(np.random.rand(*input_shapes[ipt]),
@@ -467,6 +478,8 @@ def simplify(model: Union[str, onnx.ModelProto],
     :param custom_lib: onnxruntime custom ops's shared library
     :return: A tuple (simplified model, success(True) or failed(False))
     """
+    config.dynamic_input_shape = dynamic_input_shape
+
     if input_shapes is None:
         input_shapes = {}
     if input_data is None:
