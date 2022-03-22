@@ -199,8 +199,10 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
 def forward(model: onnx.ModelProto,
             input_data: Optional[Tensors] = None,
             input_shapes: Optional[TensorShapes] = None,
-            outputs: Optional[str] = None,
+            outputs: Optional[Sequence[str]] = None,
             custom_lib: Optional[str] = None) -> Tensors:
+    if outputs is not None and len(outputs) == 0:
+        return {}
     if input_shapes is None:
         input_shapes = {}
     sess_options = rt.SessionOptions()
