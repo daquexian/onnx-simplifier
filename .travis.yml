@@ -1,6 +1,6 @@
 language: python
 python:
-  - "3.6"
+  - "3.7"
 script:
   - echo "tag is $TRAVIS_TAG"
   - sed -i "s/0.0.0/`echo $TRAVIS_TAG | cut -c 2-`/" setup.py
