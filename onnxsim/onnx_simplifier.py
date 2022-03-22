@@ -167,7 +167,6 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
         return False
 
     def check_node(graph):
-        print("Check subgraph {}".format(graph.name))
         for node in graph.node:
             if has_subgraph_in_node(node):
                 # Skip this node if this node has subgraph in it
@@ -192,7 +191,6 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
                 const_tensors.extend(node.output)
 
     check_node(m.graph)
-    print("Const Nodes to remove {}".format([n.name for n in const_nodes]))
     return copy.deepcopy(const_nodes)
 
 
