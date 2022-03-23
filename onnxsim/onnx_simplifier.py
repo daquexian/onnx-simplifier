@@ -22,6 +22,7 @@ TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
 
 class Config:
     dynamic_input_shape: bool
+    include_subgraph: bool
 
 config = Config()
 
@@ -44,6 +45,8 @@ def get_all_subgraphs(model: onnx.ModelProto):
 def add_features_to_output(m: onnx.ModelProto, nodes: List[onnx.NodeProto]) -> None:
     """
     Add features to output in pb, so that ONNX Runtime will output them.
+    Note: the resulting model is not valid, because
+    outputs of main graph should has other fields such as 'type'
     :param m: the model that will be run in ONNX Runtime
     :param nodes: nodes whose outputs will be added into the graph outputs
     """
@@ -184,8 +187,10 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
                 # "If" node with const cond will be eliminated by onnxoptimizer
                 if any(x in dynamic_tensors for x in node.input):
                     dynamic_tensors.extend(node.output)
-                for attr in node.attribute:
-                    check_node(attr.g)
+                if config.include_subgraph:
+                    for attr in node.attribute:
+                        if attr.type in [onnx.AttributeProto.GRAPH, onnx.AttributeProto.GRAPHS]:
+                            check_node(attr.g)
             elif any(x in dynamic_tensors for x in node.input):
                 dynamic_tensors.extend(node.output)
             # Note "elif" here, only Shape op with non-dynamic input will be seen as const node
@@ -254,18 +259,20 @@ def forward_for_node_outputs(model: onnx.ModelProto,
                              custom_lib: Optional[str] = None) -> Tensors:
     if input_shapes is None:
         input_shapes = {}
-    flattened_model = copy.deepcopy(model)
-    subgraphs = get_all_subgraphs(flattened_model)
+    model = copy.deepcopy(model)
 
-    for i in range(1, len(subgraphs)):
-        subgraphs[0].node.extend(subgraphs[i].node)
-    add_features_to_output(flattened_model, nodes)
+    add_features_to_output(model, nodes)
     output_names = []
     for node in nodes:
         output_names.extend(node.output)
-    flattened_model = onnx.utils.Extractor(flattened_model).extract_model([], output_names)
-    onnx.checker.check_model(flattened_model)
-    res = forward(flattened_model,
+
+    if config.include_subgraph:
+        subgraphs = get_all_subgraphs(model)
+        for i in range(1, len(subgraphs)):
+            subgraphs[0].node.extend(subgraphs[i].node)
+        model = onnx.utils.Extractor(model).extract_model([], output_names)
+        onnx.checker.check_model(model)
+    res = forward(model,
                   input_data=input_data,
                   input_shapes=input_shapes,
                   outputs=output_names,
@@ -459,7 +466,8 @@ def simplify(model: Union[str, onnx.ModelProto],
              skip_shape_inference=False,
              input_data: Optional[Tensors] = None,
              dynamic_input_shape: bool = False,
-             custom_lib: Optional[str] = None) -> Tuple[onnx.ModelProto, bool]:
+             custom_lib: Optional[str] = None,
+             include_subgraph: bool = False) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
     :param check_n: The simplified model will be checked for `check_n` times by random inputs
@@ -479,6 +487,7 @@ def simplify(model: Union[str, onnx.ModelProto],
     :return: A tuple (simplified model, success(True) or failed(False))
     """
     config.dynamic_input_shape = dynamic_input_shape
+    config.include_subgraph = include_subgraph
 
     if input_shapes is None:
         input_shapes = {}
@@ -566,6 +575,8 @@ def main():
         '--input-data-path', help='input data, The value should be "input_name1:xxx1.bin"  "input_name2:xxx2.bin ...", input data should be a binary data file.', type=str, nargs='+')
     parser.add_argument(
         '--custom-lib', help="custom lib path which should be absolute path, if you have custom onnxruntime backend you should use this to register you custom op", type=str)
+    parser.add_argument(
+        '--include-subgraph', help='Experimental feature. Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph', action='store_true')
 
     args = parser.parse_args()
 
@@ -612,7 +623,8 @@ def main():
         skip_shape_inference=args.skip_shape_inference,
         input_data=input_tensors,
         dynamic_input_shape=args.dynamic_input_shape,
-        custom_lib=args.custom_lib)
+        custom_lib=args.custom_lib,
+        include_subgraph=args.include_subgraph)
 
     onnx.save(model_opt, args.output_model)
 

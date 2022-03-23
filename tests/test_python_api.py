@@ -68,6 +68,32 @@ def test_a_model_not_need_simplification():
     assert len(sim_model.graph.node) == 1
 
 
+def test_exprimental_simplify_subgraph():
+    class WithSubGraph(torch.nn.Module):
+        def __init__(self):
+            super(WithSubGraph, self).__init__()
+
+        def forward(self, x):
+            if x.sum() > 1.0:
+                # NOTE: even onnxsim cannot simplify it,
+                # a canonical pass in onnx-optimizer is needed for it.
+                # so this test only tests that include_subgraph doesn't
+                # result in invalid model in this case
+                return 3 + x + 3
+            else:
+                return x + 4
+
+    net = torch.jit.script(WithSubGraph())
+    dummy_input = torch.randn(2)
+    sim_model = export_simplify_and_check_by_python_api(
+        net, dummy_input,
+        simplify_kwargs={"include_subgraph": True}
+    )
+    assert len(sim_model.graph.node) == 3
+    assert len(sim_model.graph.node[2].attribute[0].g.node) == 2
+    assert len(sim_model.graph.node[2].attribute[1].g.node) == 1
+
+
 def test_dynamic_batch_size():
     class SimpleModel(torch.nn.Module):
         def __init__(self):
@@ -90,6 +116,7 @@ def test_dynamic_batch_size():
     assert len(sim_model.graph.node) == 1
 
 
+# NOTE: `include_subgraph` makes this test fail
 @skip_in_ci()
 def test_torchvision_fasterrcnn_fpn():
     model = tv.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
