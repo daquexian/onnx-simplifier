@@ -87,7 +87,7 @@ import onnx
 from onnxsim import simplify
 
 # load your predefined ONNX model
-model = onnx.load(path + model_name + '.onnx')
+model = onnx.load(filename)
 
 # convert model
 model_simp, check = simplify(model)
