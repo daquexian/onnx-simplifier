@@ -111,6 +111,73 @@ def get_input_names(model: onnx.ModelProto) -> List[str]:
     return input_names
 
 
+def get_elem_size_from_elem_type(elem_type: int):
+    return np.dtype(get_np_type_from_elem_type(elem_type)).itemsize
+
+
+def get_model_info(model: onnx.ModelProto):
+    """
+    op_dict
+    weight_num
+    """
+    op_dict = dict()
+    for node in model.graph.node:
+        if node.op_type not in op_dict.keys():
+            op_dict[node.op_type] = 1
+        else:
+            op_dict[node.op_type] = op_dict[node.op_type] + 1
+    weight_num = 0
+    for init in model.graph.initializer:
+        num = 1
+        if len(init.dims) != 0:
+            for dim in init.dims:
+                num *= dim
+        else:
+            size_bytes = len(init.raw_data)
+            elem_size = get_elem_size_from_elem_type(init.data_type)
+            num = size_bytes / elem_size
+        weight_num += int(num)
+    model_info = dict()
+    model_info.update({"op_dict": op_dict})
+    model_info.update({"weight_num": weight_num})
+    return model_info
+
+
+def print_sim_model_info(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto):
+    """
+    --------------------------------------------
+    | type           | num of ori | num of opt |
+    --------------------------------------------
+    | ****           | ****       | ****       |
+    --------------------------------------------
+    | num of weight  | ***        | ***        |
+    --------------------------------------------
+    """
+    ori_info = get_model_info(model_ori)
+    opt_info = get_model_info(model_opt)
+    op_dict = dict()
+    for key, value in ori_info["op_dict"].items():
+        op_dict[key] = list()
+        op_dict[key].append(value)
+        op_dict[key].append(0)
+    for key, value in opt_info["op_dict"].items():
+        if key in op_dict:
+            op_dict[key][1] = value
+        else:
+            op_dict[key] = list()
+            op_dict[key].append(0)
+            op_dict[key].append(value)
+    str_format = "{0:^25}\t{1:^15}\t{2:^15}"
+    print("------------------------------------------------------------")
+    print(str_format.format("type", "model of ori", "model of sim"))
+    print("------------------------------------------------------------")
+    for key, value in op_dict.items():
+        print(str_format.format(key, value[0], value[1]))
+    print("------------------------------------------------------------")
+    print(str_format.format("num of weight", ori_info["weight_num"], opt_info["weight_num"]))
+    print("------------------------------------------------------------")
+
+
 def generate_specific_rand_input(model, input_shapes: TensorShapes):
     """
     Only generate rand inputs whose shape in `input_shapes`
@@ -467,7 +534,8 @@ def simplify(model: Union[str, onnx.ModelProto],
              input_data: Optional[Tensors] = None,
              dynamic_input_shape: bool = False,
              custom_lib: Optional[str] = None,
-             include_subgraph: bool = False) -> Tuple[onnx.ModelProto, bool]:
+             include_subgraph: bool = False,
+             sim_info: bool = False) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
     :param check_n: The simplified model will be checked for `check_n` times by random inputs
@@ -484,6 +552,8 @@ def simplify(model: Union[str, onnx.ModelProto],
             If 'dynamic_input_shape' is False, the input shape in simplified model will be overwritten
             by the value of 'input_shapes' param.
     :param custom_lib: onnxruntime custom ops's shared library
+    :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
+    :param sim_info: get the info of sim
     :return: A tuple (simplified model, success(True) or failed(False))
     """
     config.dynamic_input_shape = dynamic_input_shape
@@ -548,6 +618,9 @@ def simplify(model: Union[str, onnx.ModelProto],
 
     check_ok = check(model_ori, model, check_n,
                      input_shapes=updated_input_shapes, custom_lib=custom_lib)
+    
+    if sim_info:
+        print_sim_model_info(model_ori, model)
 
     return model, check_ok
 
@@ -577,6 +650,8 @@ def main():
         '--custom-lib', help="custom lib path which should be absolute path, if you have custom onnxruntime backend you should use this to register you custom op", type=str)
     parser.add_argument(
         '--include-subgraph', help='Experimental feature. Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph', action='store_true')
+    parser.add_argument(
+        '--sim_info', help='get the info of sim', action='store_true')
 
     args = parser.parse_args()
 
@@ -624,7 +699,8 @@ def main():
         input_data=input_tensors,
         dynamic_input_shape=args.dynamic_input_shape,
         custom_lib=args.custom_lib,
-        include_subgraph=args.include_subgraph)
+        include_subgraph=args.include_subgraph,
+        sim_info=args.sim_info)
 
     onnx.save(model_opt, args.output_model)
 
