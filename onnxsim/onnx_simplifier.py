@@ -15,6 +15,9 @@ import onnxoptimizer  # type: ignore
 
 import numpy as np  # type: ignore
 
+from colorama import Fore, Back, Style
+
+
 Tensors = Dict[str, np.ndarray]
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
@@ -109,6 +112,79 @@ def get_inputs(model: onnx.ModelProto) -> List[onnx.ValueInfoProto]:
 def get_input_names(model: onnx.ModelProto) -> List[str]:
     input_names = [ipt.name for ipt in get_inputs(model)]
     return input_names
+
+
+def get_elem_size_from_elem_type(elem_type: int):
+    return np.dtype(get_np_type_from_elem_type(elem_type)).itemsize
+
+
+def get_model_info(model: onnx.ModelProto):
+    """
+    dict of op
+    bytes of weight
+    TODO: 
+    base onnx runtime
+    1、FLOPs
+    2、forward memory footprint
+    3、memory access
+    4、compute density
+    """
+    op_dict = dict()
+    for node in model.graph.node:
+        if node.op_type not in op_dict.keys():
+            op_dict[node.op_type] = 1
+        else:
+            op_dict[node.op_type] = op_dict[node.op_type] + 1
+    weight_bytes = 0
+    for init in model.graph.initializer:
+        weight_bytes += len(init.raw_data)
+    model_info = dict()
+    model_info.update({"op_dict": op_dict})
+    model_info.update({"weight_bytes": weight_bytes})
+    return model_info
+
+
+def print_sim_model_info(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto):
+    """
+    --------------------------------------------------------
+    | type             | original model | simplified model |
+    --------------------------------------------
+    | ****             | ****          | ****             |
+    --------------------------------------------------------
+    | bytes of weight  | ***          | ***              |
+    --------------------------------------------------------
+    """
+    ori_info = get_model_info(model_ori)
+    opt_info = get_model_info(model_opt)
+    op_dict = dict()
+    for key, value in ori_info["op_dict"].items():
+        op_dict[key] = list()
+        op_dict[key].append(value)
+        op_dict[key].append(0)
+    for key, value in opt_info["op_dict"].items():
+        if key in op_dict:
+            op_dict[key][1] = value
+        else:
+            op_dict[key] = list()
+            op_dict[key].append(0)
+            op_dict[key].append(value)
+    str_format = "{0:^25}\t{1:^15}\t{2:^15}"
+    print("------------------------------------------------------------")
+    print(str_format.format("type", "original model", "simplified model"))
+    print("------------------------------------------------------------")
+    for key, value in op_dict.items():
+        if value[0] != value[1]:
+            print(Fore.GREEN + str_format.format(key, value[0], value[1]))
+            print(Style.RESET_ALL)
+        else:
+            print(str_format.format(key, value[0], value[1]))
+    print("------------------------------------------------------------")
+    if ori_info["weight_bytes"] != opt_info["weight_bytes"]:
+        print(Fore.GREEN + str_format.format("bytes of weight", ori_info["weight_bytes"], opt_info["weight_bytes"]))
+        print(Style.RESET_ALL)
+    else:
+        print(str_format.format("bytes of weight", ori_info["weight_bytes"], opt_info["weight_bytes"]))
+    print("------------------------------------------------------------")
 
 
 def generate_specific_rand_input(model, input_shapes: TensorShapes):
@@ -484,6 +560,7 @@ def simplify(model: Union[str, onnx.ModelProto],
             If 'dynamic_input_shape' is False, the input shape in simplified model will be overwritten
             by the value of 'input_shapes' param.
     :param custom_lib: onnxruntime custom ops's shared library
+    :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
     :return: A tuple (simplified model, success(True) or failed(False))
     """
     config.dynamic_input_shape = dynamic_input_shape
@@ -548,7 +625,10 @@ def simplify(model: Union[str, onnx.ModelProto],
 
     check_ok = check(model_ori, model, check_n,
                      input_shapes=updated_input_shapes, custom_lib=custom_lib)
-
+    
+    if check_ok:
+        print_sim_model_info(model_ori, model)
+    
     return model, check_ok
 
 
@@ -634,3 +714,8 @@ def main():
         print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
         sys.exit(1)
 
+
+if __name__ == '__main__':
+    main()
+
+    
