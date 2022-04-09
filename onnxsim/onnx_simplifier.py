@@ -521,7 +521,7 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
     """
     x = func_a(x)
     x = func_b(x)
-    count = 0
+    # count = 0
     while True:
         y = func_a(x)
         if y == x:
@@ -534,11 +534,11 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
         if y == x:
             return x
         x = y
-        count = count + 1
-        print(count)
-        if count > 64:
-            print("Note: `func_a` and `func_b` on `x` can't get func_b(func_a(x)) == x")
-            return x
+        # count = count + 1
+        # print(count)
+        # if count > 64:
+        #     print("Note: `func_a` and `func_b` on `x` can't get func_b(func_a(x)) == x")
+        #     return x
 
 
 def simplify(model: Union[str, onnx.ModelProto],
@@ -722,22 +722,3 @@ def main():
         print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
         sys.exit(1)
 
-
-def fun_add(t):
-    ret = t + t
-    return ret
-
-
-def fun_mul(t):
-   ret = t * t
-   return ret
-
-
-if __name__ == '__main__':
-    main()
-    # test_1 = fixed_point(3, fun_add, fun_mul)
-    # print(test_1)
-    # test_2 = fixed_point(3, fun_mul, fun_add)
-    # print(test_2)
-
-    
