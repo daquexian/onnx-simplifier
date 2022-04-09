@@ -5,6 +5,7 @@ from functools import reduce
 import os
 import sys
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
+from colorama import init, Fore
 
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
@@ -15,19 +16,19 @@ import onnxoptimizer  # type: ignore
 
 import numpy as np  # type: ignore
 
-from colorama import Fore, Back, Style
-
-
 Tensors = Dict[str, np.ndarray]
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
 TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
 
+
 class Config:
     dynamic_input_shape: bool
     include_subgraph: bool
 
+
 config = Config()
+
 
 def has_subgraph_in_node(node: onnx.NodeProto):
     for attr in node.attribute:
@@ -168,6 +169,7 @@ def print_sim_model_info(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto)
             op_dict[key] = list()
             op_dict[key].append(0)
             op_dict[key].append(value)
+    init(wrap=True)
     str_format = "{0:^25}\t{1:^15}\t{2:^15}"
     print("------------------------------------------------------------")
     print(str_format.format("type", "original model", "simplified model"))
@@ -175,13 +177,13 @@ def print_sim_model_info(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto)
     for key, value in op_dict.items():
         if value[0] != value[1]:
             print(Fore.GREEN + str_format.format(key, value[0], value[1]))
-            print(Style.RESET_ALL)
+            init(autoreset=True)
         else:
             print(str_format.format(key, value[0], value[1]))
     print("------------------------------------------------------------")
     if ori_info["weight_bytes"] != opt_info["weight_bytes"]:
         print(Fore.GREEN + str_format.format("bytes of weight", ori_info["weight_bytes"], opt_info["weight_bytes"]))
-        print(Style.RESET_ALL)
+        init(autoreset=True)
     else:
         print(str_format.format("bytes of weight", ori_info["weight_bytes"], opt_info["weight_bytes"]))
     print("------------------------------------------------------------")
@@ -519,6 +521,7 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
     """
     x = func_a(x)
     x = func_b(x)
+    count = 0
     while True:
         y = func_a(x)
         if y == x:
@@ -531,6 +534,11 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
         if y == x:
             return x
         x = y
+        count = count + 1
+        print(count)
+        if count > 64:
+            print("Note: `func_a` and `func_b` on `x` can't get func_b(func_a(x)) == x")
+            return x
 
 
 def simplify(model: Union[str, onnx.ModelProto],
@@ -715,7 +723,21 @@ def main():
         sys.exit(1)
 
 
+def fun_add(t):
+    ret = t + t
+    return ret
+
+
+def fun_mul(t):
+   ret = t * t
+   return ret
+
+
 if __name__ == '__main__':
     main()
+    # test_1 = fixed_point(3, fun_add, fun_mul)
+    # print(test_1)
+    # test_2 = fixed_point(3, fun_mul, fun_add)
+    # print(test_2)
 
     
