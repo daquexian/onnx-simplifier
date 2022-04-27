@@ -53,8 +53,8 @@ def print_simplifying_info(model_ori: onnx.ModelProto, model_opt: onnx.ModelProt
     opt_info = ModelInfo(model_opt)
     table = Table()
     table.add_column('')
-    table.add_column('original model')
-    table.add_column('simplified model')
+    table.add_column('Original Model')
+    table.add_column('Simplified Model')
 
     def add_row(table: Table, key, ori_data, opt_data, is_better: Callable[[Any, Any], Any], postprocess: Optional[Callable[[Any], Any]] = None) -> None:
         if postprocess is None:
