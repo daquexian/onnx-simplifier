@@ -6,7 +6,6 @@ from functools import reduce
 import os
 import sys
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
-from colorama import init, Fore
 
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
@@ -16,6 +15,8 @@ import onnxruntime as rt  # type: ignore
 import onnxoptimizer  # type: ignore
 
 import numpy as np  # type: ignore
+
+from . import model_info
 
 Tensors = Dict[str, np.ndarray]
 TensorShape = List[int]
@@ -144,77 +145,7 @@ def remove_unused_output(model: onnx.ModelProto, unused_output: List[str]) -> on
     model = onnxoptimizer.optimize(model, optimizers_list,
                                    fixed_point=True)
     onnx.checker.check_model(model)
-    return model     
-
-
-def get_model_info(model: onnx.ModelProto):
-    """
-    dict of op
-    bytes of weight
-    TODO: 
-    base onnx runtime
-    1、FLOPs
-    2、forward memory footprint
-    3、memory access
-    4、compute density
-    """
-    op_dict = dict()
-    for node in model.graph.node:
-        if node.op_type not in op_dict.keys():
-            op_dict[node.op_type] = 1
-        else:
-            op_dict[node.op_type] = op_dict[node.op_type] + 1
-    weight_bytes = 0
-    for init in model.graph.initializer:
-        weight_bytes += len(init.raw_data)
-    model_info = dict()
-    model_info.update({"op_dict": op_dict})
-    model_info.update({"weight_bytes": weight_bytes})
-    return model_info
-
-
-def print_sim_model_info(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto):
-    """
-    --------------------------------------------------------
-    | type             | original model | simplified model |
-    --------------------------------------------------------
-    | ****             | ****           | ****             |
-    --------------------------------------------------------
-    | bytes of weight  | ***            | ***              |
-    --------------------------------------------------------
-    """
-    ori_info = get_model_info(model_ori)
-    opt_info = get_model_info(model_opt)
-    op_dict = dict()
-    for key, value in ori_info["op_dict"].items():
-        op_dict[key] = list()
-        op_dict[key].append(value)
-        op_dict[key].append(0)
-    for key, value in opt_info["op_dict"].items():
-        if key in op_dict:
-            op_dict[key][1] = value
-        else:
-            op_dict[key] = list()
-            op_dict[key].append(0)
-            op_dict[key].append(value)
-    init(wrap=True)
-    str_format = "{0:^25}\t{1:^15}\t{2:^15}"
-    print("------------------------------------------------------------")
-    print(str_format.format("type", "original model", "simplified model"))
-    print("------------------------------------------------------------")
-    for key, value in op_dict.items():
-        if value[0] != value[1]:
-            print(Fore.GREEN + str_format.format(key, value[0], value[1]))
-            init(autoreset=True)
-        else:
-            print(str_format.format(key, value[0], value[1]))
-    print("------------------------------------------------------------")
-    if ori_info["weight_bytes"] != opt_info["weight_bytes"]:
-        print(Fore.GREEN + str_format.format("bytes of weight", ori_info["weight_bytes"], opt_info["weight_bytes"]))
-        init(autoreset=True)
-    else:
-        print(str_format.format("bytes of weight", ori_info["weight_bytes"], opt_info["weight_bytes"]))
-    print("------------------------------------------------------------")
+    return model
 
 
 def generate_specific_rand_input(model, input_shapes: TensorShapes):
@@ -613,7 +544,8 @@ def simplify(model: Union[str, onnx.ModelProto],
         model = onnx.load(model)
     assert(isinstance(model, onnx.ModelProto))
     onnx.checker.check_model(model)
-    model_ori = copy.deepcopy(model)
+    model_ori = model
+    model = copy.deepcopy(model)
 
     input_names = get_input_names(model)
     for input_name, data in input_data.items():
@@ -667,9 +599,6 @@ def simplify(model: Union[str, onnx.ModelProto],
 
     check_ok = check(model_ori, model, check_n,
                      input_shapes=updated_input_shapes, custom_lib=custom_lib)
-    
-    if check_ok:
-        print_sim_model_info(model_ori, model)
     
     return model, check_ok
 
@@ -737,8 +666,9 @@ def main():
             input_data = input_data.reshape(input_shapes[name])
             input_tensors.update({name: input_data})
 
+    model = onnx.load(args.input_model)
     model_opt, check_ok = simplify(
-        args.input_model,
+        model,
         check_n=args.check_n,
         perform_optimization=not args.skip_optimization,
         skip_fuse_bn=args.skip_fuse_bn,
@@ -754,7 +684,8 @@ def main():
     onnx.save(model_opt, args.output_model)
 
     if check_ok:
-        print("Ok!")
+        print("Finish! Here is the difference:")
+        model_info.print_simplifying_info(model, model_opt)
     else:
         print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
         sys.exit(1)
