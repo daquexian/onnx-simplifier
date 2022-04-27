@@ -1,8 +1,6 @@
 import argparse
-from ast import Raise
 from collections import OrderedDict
 import copy
-from functools import reduce
 import os
 import sys
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
@@ -48,7 +46,7 @@ def get_all_subgraphs(model: onnx.ModelProto):
     return graphs
 
 
-def add_features_to_output(m: onnx.ModelProto, nodes: List[onnx.NodeProto]) -> None:
+def add_features_to_output(m: onnx.ModelProto, nodes: Sequence[onnx.NodeProto]) -> None:
     """
     Add features to output in pb, so that ONNX Runtime will output them.
     Note: the resulting model is not valid, because
@@ -117,32 +115,22 @@ def get_input_names(model: onnx.ModelProto) -> List[str]:
     return input_names
 
 
-def get_outputs(model: onnx.ModelProto) -> List[onnx.ValueInfoProto]:
-    initializer_names = [x.name for x in model.graph.initializer]
-    return [opt for opt in model.graph.output if opt.name not in initializer_names]
-
-
 def get_output_names(model: onnx.ModelProto) -> List[str]:
-    output_names = [opt.name for opt in get_outputs(model)]
+    output_names = [opt.name for opt in model.graph.output]
     return output_names
 
 
-def get_elem_size_from_elem_type(elem_type: int):
-    return np.dtype(get_np_type_from_elem_type(elem_type)).itemsize
-
-
-def remove_unused_output(model: onnx.ModelProto, unused_output: List[str]) -> onnx.ModelProto:
+def remove_unused_output(model: onnx.ModelProto, unused_output: Sequence[str]) -> onnx.ModelProto:
     unused_output_names = unused_output
     output_names = get_output_names(model)
     for unused_output_name in unused_output_names:
         if unused_output_name not in output_names:
-            raise RuntimeError('The model doesn\'t have output named "{}"'.format(unused_output_name))
-    for unused_output_name in unused_output_names:
-        for graph_output in model.graph.output:
-            if graph_output.name == unused_output_name:
-                model.graph.output.remove(graph_output)
-    optimizers_list = ["eliminate_deadend"]
-    model = onnxoptimizer.optimize(model, optimizers_list,
+            raise RuntimeError(
+                f'The model doesn\'t have output named "{unused_output_name}"')
+    for graph_output in copy.deepcopy(model.graph.output):
+        if graph_output.name in unused_output_names:
+            model.graph.output.remove(graph_output)
+    model = onnxoptimizer.optimize(model, ['eliminate_deadend'],
                                    fixed_point=True)
     onnx.checker.check_model(model)
     return model
@@ -160,7 +148,7 @@ def generate_specific_rand_input(model, input_shapes: TensorShapes):
             if config.dynamic_input_shape and len(shape_np) >= 3 and np.all(shape_np[1:] > 0):
                 input_shapes[key] = [1] + shape[1:]
                 continue
-                
+
             raise RuntimeError(
                 'The shape of input "{}" has dynamic size "{}", '
                 'please try "--dynamic-input-shape" or determine '
@@ -290,7 +278,7 @@ def forward(model: onnx.ModelProto,
 
 
 def forward_for_node_outputs(model: onnx.ModelProto,
-                             nodes: List[onnx.NodeProto],
+                             nodes: Sequence[onnx.NodeProto],
                              input_shapes: Optional[TensorShapes] = None,
                              input_data: Optional[Tensors] = None,
                              custom_lib: Optional[str] = None) -> Tensors:
@@ -324,7 +312,7 @@ def insert_elem(repeated_container, index: int, element):
     repeated_container[index].CopyFrom(element)
 
 
-def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodeProto],
+def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: Sequence[onnx.NodeProto],
                           res: Tensors) -> onnx.ModelProto:
     """
     :param model: the original onnx model
@@ -352,7 +340,8 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
                 del graph.node[i]
             if has_subgraph_in_node(node):
                 for attr in node.attribute:
-                    recursive_eliminate_const_nodes_in_graph(attr.g, const_nodes, res)
+                    recursive_eliminate_const_nodes_in_graph(
+                        attr.g, const_nodes, res)
     recursive_eliminate_const_nodes_in_graph(model.graph, const_nodes, res)
 
     return model
@@ -407,13 +396,15 @@ def check(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto, n_times: int,
         print("Checking {}/{}...".format(i, n_times))
         rand_input = generate_all_rand_input(
             model_opt, input_shapes=input_shapes)
-        res_opt = forward(model_opt, input_data=rand_input, custom_lib=custom_lib)
-        res_ori = forward(model_ori, input_data=rand_input, custom_lib=custom_lib)
+        res_opt = forward(model_opt, input_data=rand_input,
+                          custom_lib=custom_lib)
+        res_ori = forward(model_ori, input_data=rand_input,
+                          custom_lib=custom_lib)
 
         for name in res_opt.keys():
             if not np.allclose(res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5):
                 print("Tensor {} changes after simplifying. The max diff is {}.".format(
-                    name, np.max(np.abs(res_opt[name] - res_ori[name])))) # type: ignore
+                    name, np.max(np.abs(res_opt[name] - res_ori[name]))))  # type: ignore
                 print("Note that the checking is not always correct.")
                 print("After simplifying:")
                 print(res_opt[name])
@@ -424,7 +415,7 @@ def check(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto, n_times: int,
     return True
 
 
-def clean_constant_nodes(const_nodes: List[onnx.NodeProto], res: Tensors):
+def clean_constant_nodes(const_nodes: Sequence[onnx.NodeProto], res: Tensors):
     """
     It seems not needed since commit 6f2a72, but maybe it still prevents some unknown bug
     :param const_nodes: const nodes detected by `get_constant_nodes`
@@ -493,10 +484,9 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
         if y == x:
             return x
         x = y
-        count = count + 1
-        print(count)
+        count += 1
         if count > 64:
-            print("Note: `func_a` and `func_b` on `x` can\'t get func_b(func_a(x)) == x")
+            print("Warning: The simplifying takes too long. Stopping..")
             return x
 
 
@@ -563,11 +553,12 @@ def simplify(model: Union[str, onnx.ModelProto],
                 input_name, input_name))
         elif input_name not in input_shapes:
             input_shapes[input_name] = shape
-    
+
     if unused_output is not None:
         model = remove_unused_output(model, unused_output)
 
-    updated_input_shapes = check_and_update_input_shapes(model, input_shapes, dynamic_input_shape)
+    updated_input_shapes = check_and_update_input_shapes(
+        model, input_shapes, dynamic_input_shape)
 
     def infer_shapes_and_optimize(model: onnx.ModelProto) -> onnx.ModelProto:
         def infer_shapes_if_applicable(model: onnx.ModelProto) -> onnx.ModelProto:
@@ -599,7 +590,7 @@ def simplify(model: Union[str, onnx.ModelProto],
 
     check_ok = check(model_ori, model, check_n,
                      input_shapes=updated_input_shapes, custom_lib=custom_lib)
-    
+
     return model, check_ok
 
 
@@ -689,4 +680,3 @@ def main():
     else:
         print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
         sys.exit(1)
-
