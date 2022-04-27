@@ -42,7 +42,7 @@ class ModelInfo:
 def print_simplifying_info(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto) -> None:
     """
     --------------------------------------------------------
-    | type        | original model | simplified model |
+    |             | original model | simplified model |
     --------------------------------------------------------
     | ****        | ****           | ****             |
     --------------------------------------------------------

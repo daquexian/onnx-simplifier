@@ -517,7 +517,7 @@ def simplify(model: Union[str, onnx.ModelProto],
             by the value of 'input_shapes' param.
     :param custom_lib: onnxruntime custom ops's shared library
     :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
-    :param unused_output: remove unused output. The value should be "output_1" "output_2".
+    :param unused_output: name of unused outputs that will be eliminated from the model
     :return: A tuple (simplified model, success(True) or failed(False))
     """
     config.dynamic_input_shape = dynamic_input_shape
