@@ -472,7 +472,7 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
     x = func_a(x)
     x = func_b(x)
     count = 0
-    while True:
+    for _ in range(64):
         y = func_a(x)
         if y == x:
             # Since func_b(func_b(x)) == func_b(x),
@@ -484,10 +484,8 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
         if y == x:
             return x
         x = y
-        count += 1
-        if count > 64:
-            print("Warning: The simplifying takes too long. Stopping..")
-            return x
+    print("Warning: The simplifying takes too long. Stopping..")
+    return x
 
 
 def simplify(model: Union[str, onnx.ModelProto],
@@ -678,5 +676,7 @@ def main():
         print("Finish! Here is the difference:")
         model_info.print_simplifying_info(model, model_opt)
     else:
-        print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
+        print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"onnxsim -h\" for details).")
+        print("Here is the difference after simplification:")
+        model_info.print_simplifying_info(model, model_opt)
         sys.exit(1)
