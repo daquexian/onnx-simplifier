@@ -14,8 +14,7 @@ def export_simplify_and_check_by_python_api(
     input: Any,
     *,
     export_kwargs: Optional[Dict[str, Any]] = None,
-    simplify_kwargs: Optional[Dict[str, Any]] = None
-):
+    simplify_kwargs: Optional[Dict[str, Any]] = None) -> onnx.ModelProto:
     if export_kwargs is None:
         export_kwargs = {}
     if simplify_kwargs is None:
@@ -113,7 +112,7 @@ def test_dynamic_batch_size():
         },
         simplify_kwargs={"dynamic_input_shape": True},
     )
-    assert len(sim_model.graph.node) == 1
+    assert len(sim_model.graph.node) == 1    
 
 
 # NOTE: `include_subgraph` makes this test fail
@@ -162,3 +161,41 @@ def test_torchvision_deeplabv3():
     model = tv.models.segmentation.deeplabv3_resnet50(pretrained=False)
     x = torch.rand(1, 3, 224, 224)
     export_simplify_and_check_by_python_api(model, x)
+
+
+def test_unused_output():
+    class SimpleModel(torch.nn.Module):
+        def __init__(self):
+            super(SimpleModel, self).__init__()
+
+        def forward(self, x):
+            x1 = x + 2
+            x1 = x1 - 2
+            x1 = x1 * 2
+            x1 = x1 / 2
+            y1 = x1
+            x2 = x + 2
+            x2 = x2 - 2
+            x2 = x2 * 2
+            x2 = x2 / 2
+            y2 = x2
+            x3 = x + 2
+            x3 = x3 - 2
+            x3 = x3 * 2
+            x3 = x3 / 2
+            y3 = x3
+            return y1, y2, y3
+
+    net = SimpleModel()
+    dummy_input = torch.randn(2, 3, 4, 5)
+    sim_model = export_simplify_and_check_by_python_api(
+        net,
+        dummy_input,
+        export_kwargs={
+            "input_names": ["input"],
+            "output_names": ["output0", "output1", "output2"],
+        },
+        simplify_kwargs={"unused_output": ["output1", "output2"]}
+    )
+    assert len(sim_model.graph.node) == 4
+

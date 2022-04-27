@@ -1,7 +1,6 @@
 import argparse
 from collections import OrderedDict
 import copy
-from functools import reduce
 import os
 import sys
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
@@ -15,16 +14,21 @@ import onnxoptimizer  # type: ignore
 
 import numpy as np  # type: ignore
 
+from . import model_info
+
 Tensors = Dict[str, np.ndarray]
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
 TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
 
+
 class Config:
     dynamic_input_shape: bool
     include_subgraph: bool
 
+
 config = Config()
+
 
 def has_subgraph_in_node(node: onnx.NodeProto):
     for attr in node.attribute:
@@ -42,7 +46,7 @@ def get_all_subgraphs(model: onnx.ModelProto):
     return graphs
 
 
-def add_features_to_output(m: onnx.ModelProto, nodes: List[onnx.NodeProto]) -> None:
+def add_features_to_output(m: onnx.ModelProto, nodes: Sequence[onnx.NodeProto]) -> None:
     """
     Add features to output in pb, so that ONNX Runtime will output them.
     Note: the resulting model is not valid, because
@@ -111,6 +115,27 @@ def get_input_names(model: onnx.ModelProto) -> List[str]:
     return input_names
 
 
+def get_output_names(model: onnx.ModelProto) -> List[str]:
+    output_names = [opt.name for opt in model.graph.output]
+    return output_names
+
+
+def remove_unused_output(model: onnx.ModelProto, unused_output: Sequence[str]) -> onnx.ModelProto:
+    unused_output_names = unused_output
+    output_names = get_output_names(model)
+    for unused_output_name in unused_output_names:
+        if unused_output_name not in output_names:
+            raise RuntimeError(
+                f'The model doesn\'t have output named "{unused_output_name}"')
+    for graph_output in copy.deepcopy(model.graph.output):
+        if graph_output.name in unused_output_names:
+            model.graph.output.remove(graph_output)
+    model = onnxoptimizer.optimize(model, ['eliminate_deadend'],
+                                   fixed_point=True)
+    onnx.checker.check_model(model)
+    return model
+
+
 def generate_specific_rand_input(model, input_shapes: TensorShapes):
     """
     Only generate rand inputs whose shape in `input_shapes`
@@ -123,7 +148,7 @@ def generate_specific_rand_input(model, input_shapes: TensorShapes):
             if config.dynamic_input_shape and len(shape_np) >= 3 and np.all(shape_np[1:] > 0):
                 input_shapes[key] = [1] + shape[1:]
                 continue
-                
+
             raise RuntimeError(
                 'The shape of input "{}" has dynamic size "{}", '
                 'please try "--dynamic-input-shape" or determine '
@@ -253,7 +278,7 @@ def forward(model: onnx.ModelProto,
 
 
 def forward_for_node_outputs(model: onnx.ModelProto,
-                             nodes: List[onnx.NodeProto],
+                             nodes: Sequence[onnx.NodeProto],
                              input_shapes: Optional[TensorShapes] = None,
                              input_data: Optional[Tensors] = None,
                              custom_lib: Optional[str] = None) -> Tensors:
@@ -287,7 +312,7 @@ def insert_elem(repeated_container, index: int, element):
     repeated_container[index].CopyFrom(element)
 
 
-def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodeProto],
+def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: Sequence[onnx.NodeProto],
                           res: Tensors) -> onnx.ModelProto:
     """
     :param model: the original onnx model
@@ -315,7 +340,8 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: List[onnx.NodePro
                 del graph.node[i]
             if has_subgraph_in_node(node):
                 for attr in node.attribute:
-                    recursive_eliminate_const_nodes_in_graph(attr.g, const_nodes, res)
+                    recursive_eliminate_const_nodes_in_graph(
+                        attr.g, const_nodes, res)
     recursive_eliminate_const_nodes_in_graph(model.graph, const_nodes, res)
 
     return model
@@ -348,7 +374,7 @@ def optimize(model: onnx.ModelProto, skip_fuse_bn: bool, skipped_optimizers: Opt
     return model
 
 
-def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int,
+def check(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto, n_times: int,
           input_shapes: Optional[TensorShapes] = None, custom_lib: Optional[str] = None) -> bool:
     """
     Warning: Some models (e.g., MobileNet) may fail this check by a small magnitude.
@@ -370,13 +396,15 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int,
         print("Checking {}/{}...".format(i, n_times))
         rand_input = generate_all_rand_input(
             model_opt, input_shapes=input_shapes)
-        res_opt = forward(model_opt, input_data=rand_input, custom_lib=custom_lib)
-        res_ori = forward(model_ori, input_data=rand_input, custom_lib=custom_lib)
+        res_opt = forward(model_opt, input_data=rand_input,
+                          custom_lib=custom_lib)
+        res_ori = forward(model_ori, input_data=rand_input,
+                          custom_lib=custom_lib)
 
         for name in res_opt.keys():
             if not np.allclose(res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5):
                 print("Tensor {} changes after simplifying. The max diff is {}.".format(
-                    name, np.max(np.abs(res_opt[name] - res_ori[name])))) # type: ignore
+                    name, np.max(np.abs(res_opt[name] - res_ori[name]))))  # type: ignore
                 print("Note that the checking is not always correct.")
                 print("After simplifying:")
                 print(res_opt[name])
@@ -387,7 +415,7 @@ def check(model_opt: onnx.ModelProto, model_ori: onnx.ModelProto, n_times: int,
     return True
 
 
-def clean_constant_nodes(const_nodes: List[onnx.NodeProto], res: Tensors):
+def clean_constant_nodes(const_nodes: Sequence[onnx.NodeProto], res: Tensors):
     """
     It seems not needed since commit 6f2a72, but maybe it still prevents some unknown bug
     :param const_nodes: const nodes detected by `get_constant_nodes`
@@ -443,7 +471,8 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
     """
     x = func_a(x)
     x = func_b(x)
-    while True:
+    count = 0
+    for _ in range(64):
         y = func_a(x)
         if y == x:
             # Since func_b(func_b(x)) == func_b(x),
@@ -455,6 +484,8 @@ def fixed_point(x: T, func_a: Callable[[T], T], func_b: Callable[[T], T]) -> T:
         if y == x:
             return x
         x = y
+    print("Warning: The simplifying takes too long. Stopping..")
+    return x
 
 
 def simplify(model: Union[str, onnx.ModelProto],
@@ -467,7 +498,8 @@ def simplify(model: Union[str, onnx.ModelProto],
              input_data: Optional[Tensors] = None,
              dynamic_input_shape: bool = False,
              custom_lib: Optional[str] = None,
-             include_subgraph: bool = False) -> Tuple[onnx.ModelProto, bool]:
+             include_subgraph: bool = False,
+             unused_output: Optional[Sequence[str]] = None) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
     :param check_n: The simplified model will be checked for `check_n` times by random inputs
@@ -484,6 +516,8 @@ def simplify(model: Union[str, onnx.ModelProto],
             If 'dynamic_input_shape' is False, the input shape in simplified model will be overwritten
             by the value of 'input_shapes' param.
     :param custom_lib: onnxruntime custom ops's shared library
+    :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
+    :param unused_output: name of unused outputs that will be eliminated from the model
     :return: A tuple (simplified model, success(True) or failed(False))
     """
     config.dynamic_input_shape = dynamic_input_shape
@@ -498,7 +532,8 @@ def simplify(model: Union[str, onnx.ModelProto],
         model = onnx.load(model)
     assert(isinstance(model, onnx.ModelProto))
     onnx.checker.check_model(model)
-    model_ori = copy.deepcopy(model)
+    model_ori = model
+    model = copy.deepcopy(model)
 
     input_names = get_input_names(model)
     for input_name, data in input_data.items():
@@ -517,7 +552,12 @@ def simplify(model: Union[str, onnx.ModelProto],
         elif input_name not in input_shapes:
             input_shapes[input_name] = shape
 
-    updated_input_shapes = check_and_update_input_shapes(model, input_shapes, dynamic_input_shape)
+    if unused_output is not None:
+        model = remove_unused_output(model, unused_output)
+
+    updated_input_shapes = check_and_update_input_shapes(
+        model, input_shapes, dynamic_input_shape)
+
     def infer_shapes_and_optimize(model: onnx.ModelProto) -> onnx.ModelProto:
         def infer_shapes_if_applicable(model: onnx.ModelProto) -> onnx.ModelProto:
             if not skip_shape_inference:
@@ -577,6 +617,8 @@ def main():
         '--custom-lib', help="custom lib path which should be absolute path, if you have custom onnxruntime backend you should use this to register you custom op", type=str)
     parser.add_argument(
         '--include-subgraph', help='Experimental feature. Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph', action='store_true')
+    parser.add_argument(
+        '--unused-output', help='Name of unused outputs that will be eliminated from the model', type=str, nargs='+')
 
     args = parser.parse_args()
 
@@ -613,8 +655,9 @@ def main():
             input_data = input_data.reshape(input_shapes[name])
             input_tensors.update({name: input_data})
 
+    model = onnx.load(args.input_model)
     model_opt, check_ok = simplify(
-        args.input_model,
+        model,
         check_n=args.check_n,
         perform_optimization=not args.skip_optimization,
         skip_fuse_bn=args.skip_fuse_bn,
@@ -624,13 +667,16 @@ def main():
         input_data=input_tensors,
         dynamic_input_shape=args.dynamic_input_shape,
         custom_lib=args.custom_lib,
-        include_subgraph=args.include_subgraph)
+        include_subgraph=args.include_subgraph,
+        unused_output=args.unused_output)
 
     onnx.save(model_opt, args.output_model)
 
     if check_ok:
-        print("Ok!")
+        print("Finish! Here is the difference:")
+        model_info.print_simplifying_info(model, model_opt)
     else:
-        print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"python3 -m onnxsim -h\" for details)")
+        print("Check failed. Please be careful to use the simplified model, or try specifying \"--skip-fuse-bn\" or \"--skip-optimization\" (run \"onnxsim -h\" for details).")
+        print("Here is the difference after simplification:")
+        model_info.print_simplifying_info(model, model_opt)
         sys.exit(1)
-

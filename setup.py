@@ -3,7 +3,8 @@ from setuptools import setup, find_packages  # type: ignore
 install_requires = [
     'onnx',
     'onnxoptimizer >= 0.2.6',
-    'protobuf >= 3.7.0'
+    'protobuf >= 3.7.0',
+    'rich'
 ]
 
 try:
