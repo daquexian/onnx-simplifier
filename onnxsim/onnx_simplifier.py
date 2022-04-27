@@ -618,7 +618,7 @@ def main():
     parser.add_argument(
         '--include-subgraph', help='Experimental feature. Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph', action='store_true')
     parser.add_argument(
-        '--unused-output', help='remove unused output. The value should be "output_1" "output_2".', type=str, nargs='+')
+        '--unused-output', help='Name of unused outputs that will be eliminated from the model', type=str, nargs='+')
 
     args = parser.parse_args()
 
