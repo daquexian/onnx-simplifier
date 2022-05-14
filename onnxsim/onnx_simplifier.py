@@ -229,7 +229,7 @@ def get_constant_nodes(m: onnx.ModelProto, dynamic_input_shape: bool = False) ->
                 pass
             elif all([x in const_tensors for x in node.input]) and not is_non_deterministic_node(node):
                 # Skip these nodes to avoid bloating the model size
-                if node.op_type in ['ConstantOfShape', 'Tile']:
+                if node.op_type in ['Tile']:
                     continue
                 const_nodes.append(node)
                 const_tensors.extend(node.output)
