@@ -318,7 +318,7 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: Sequence[onnx.Nod
     """
     def recursive_eliminate_const_nodes_in_graph(graph, const_nodes, res):
         new_nodes = []
-        for i, node in enumerate(graph.node):
+        for node in graph.node:
             if node in const_nodes:
                 for output in node.output:
                     new_node = copy.deepcopy(node)
@@ -344,6 +344,7 @@ def eliminate_const_nodes(model: onnx.ModelProto, const_nodes: Sequence[onnx.Nod
                             attr.g, const_nodes, res)
         del graph.node[:]
         graph.node.extend(new_nodes)
+
     recursive_eliminate_const_nodes_in_graph(model.graph, const_nodes, res)
 
     return model
