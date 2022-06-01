@@ -1,0 +1,9 @@
+[submodule "onnxsim/third_party/onnxruntime"]
+	path = onnxsim/third_party/onnxruntime
+	url = git@github.com:microsoft/onnxruntime.git
+[submodule "onnxsim/third_party/onnx"]
+	path = onnxsim/third_party/onnx
+	url = git@github.com:onnx/onnx.git
+[submodule "onnxsim/third_party/onnx-optimizer"]
+	path = onnxsim/third_party/onnx-optimizer
+	url = git@github.com:onnx/optimizer.git
