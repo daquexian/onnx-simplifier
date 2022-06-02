@@ -12,17 +12,24 @@
 #include "onnxoptimizer/optimize.h"
 #include "third_party/onnxruntime/include/onnxruntime/core/session/onnxruntime_cxx_api.h"
 
-// Copy from onnxruntime/core/optimizer/utils.cc
-constexpr std::array kOnnxDomainNonDeterministicOps{
-    "RandomUniform", "RandomNormal", "RandomUniformLike", "RandomNormalLike",
-    "Multinomial"};
 bool IsDeterministic(const std::string& domain, const std::string& op) {
+  // Copy from onnxruntime/core/optimizer/utils.cc
+  constexpr std::array kOnnxDomainNonDeterministicOps{
+      "RandomUniform", "RandomNormal", "RandomUniformLike", "RandomNormalLike",
+      "Multinomial"};
   if (domain == "ai.onnx" || domain == "ai.onnx.ml" || domain.empty()) {
     auto iter = std::find(kOnnxDomainNonDeterministicOps.begin(),
                           kOnnxDomainNonDeterministicOps.end(), op);
     return iter == kOnnxDomainNonDeterministicOps.end();
   }
   // Unknown domain. Assume the op is not deterministic.
+  return false;
+}
+
+bool IsQDQ(const std::string& domain, const std::string& op) {
+  if (domain == "ai.onnx" || domain.empty()) {
+    return op == "QuantizeLinear" || op == "DequantizeLinear";
+  }
   return false;
 }
 
@@ -226,6 +233,7 @@ GetConstantNodes(const onnx::ModelProto& model) {
   // node is already topo sorted
   for (const auto& node : model.graph().node()) {
     if (IsDeterministic(node.domain(), node.name()) &&
+        !IsQDQ(node.domain(), node.name()) &&
         std::all_of(node.input().begin(), node.input().end(),
                     [&const_names](const auto& x) {
                       return std::find(const_names.begin(), const_names.end(),
