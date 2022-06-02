@@ -12,7 +12,7 @@ try:
     has_ort = True
 except:
     has_ort = False
-    install_requires.append('onnxruntime >= 1.10.0')
+    install_requires.append('onnxruntime >= 1.11.1')
 
 setup(
     name='onnx-simplifier',

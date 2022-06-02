@@ -1,5 +1,5 @@
 import io
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 import os
 
 import torch
@@ -13,8 +13,11 @@ def export_simplify_and_check_by_python_api(
     m: torch.nn.Module,
     input: Any,
     *,
+    is_model_valid: Optional[Callable[[Any], bool]] = None,
     export_kwargs: Optional[Dict[str, Any]] = None,
     simplify_kwargs: Optional[Dict[str, Any]] = None) -> onnx.ModelProto:
+    if is_model_valid is None:
+        is_model_valid = lambda _: True
     if export_kwargs is None:
         export_kwargs = {}
     if simplify_kwargs is None:
@@ -22,6 +25,8 @@ def export_simplify_and_check_by_python_api(
     with io.BytesIO() as f:
         torch.onnx.export(m, input, f, **export_kwargs)
         model = onnx.load_model_from_string(f.getvalue())
+        if not is_model_valid(model):
+            raise AssertionError(f'model is invalid:\n{model}')
         sim_model, check_ok = onnxsim.simplify(model, check_n=3, **simplify_kwargs)
         assert check_ok
         return sim_model
@@ -199,3 +204,23 @@ def test_unused_output():
     )
     assert len(sim_model.graph.node) == 4
 
+
+def test_remove_unused_initializer():
+    class SimpleModel(torch.nn.Module):
+        def __init__(self):
+            super(SimpleModel, self).__init__()
+            self.w = torch.nn.Parameter(torch.ones(5, 4))
+
+        def forward(self, x):
+            return x + torch.transpose(self.w, 0, 1)
+
+    net = SimpleModel()
+    dummy_input = torch.randn(2, 3, 4, 5)
+    sim_model = export_simplify_and_check_by_python_api(
+        net,
+        dummy_input,
+        is_model_valid=lambda model: any(node.op_type == 'Transpose' for node in model.graph.node),
+        export_kwargs={"do_constant_folding": False},
+    )
+    assert len(sim_model.graph.node) == 1
+    assert len(sim_model.graph.initializer) == 1
