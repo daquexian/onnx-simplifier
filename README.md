@@ -47,6 +47,10 @@ can all be eliminated by offline computation.
 ONNX Simplifier is presented to simplify the ONNX model. It infers the whole computation graph
 and then replaces the redundant operators with their constant outputs.
 
+### Web version
+
+We have published ONNX Simplifier on [convertmodel.com](https://www.convertmodel.com/#input=onnx&output=onnx). It works out of the box and **doesn't need any installation**. Note that it runs in the browser locally and your model is completely safe.
+
 ### Python version
 
 
@@ -65,10 +69,6 @@ For more functions like skipping optimization and setting input shape manually (
 ```
 onnxsim -h
 ```
-
-### Web version
-
-We have published ONNX Simplifier on https://convertmodel.com. It works out of the box and **doesn't need any installation**. Just open the webpage, choose ONNX as the output format, check the onnx simplifier and then select your model to simplify. Note that **the web version is in its very early stage**, if the web version doesn't work well for you, please install the Python version.
 
 ## Demonstration
 
