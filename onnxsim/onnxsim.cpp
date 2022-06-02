@@ -12,6 +12,20 @@
 #include "onnxoptimizer/optimize.h"
 #include "third_party/onnxruntime/include/onnxruntime/core/session/onnxruntime_cxx_api.h"
 
+// Copy from onnxruntime/core/optimizer/utils.cc
+constexpr std::array kOnnxDomainNonDeterministicOps{
+    "RandomUniform", "RandomNormal", "RandomUniformLike", "RandomNormalLike",
+    "Multinomial"};
+bool IsDeterministic(const std::string& domain, const std::string& op) {
+  if (domain == "ai.onnx" || domain == "ai.onnx.ml" || domain.empty()) {
+    auto iter = std::find(kOnnxDomainNonDeterministicOps.begin(),
+                          kOnnxDomainNonDeterministicOps.end(), op);
+    return iter == kOnnxDomainNonDeterministicOps.end();
+  }
+  // Unknown domain. Assume the op is not deterministic.
+  return false;
+}
+
 auto FindInitializerByName(const onnx::ModelProto& model,
                            const std::string& name) {
   for (const auto& initializer : model.graph().initializer()) {
@@ -134,7 +148,8 @@ std::shared_ptr<Ort::Env> GetEnv() {
   return env;
 }
 
-std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model, const onnx::NodeProto& op) {
+std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
+                                     const onnx::NodeProto& op) {
   Ort::AllocatorWithDefaultOptions allocator;
   std::vector<std::string> input_names;
   std::vector<Ort::Value> input_tensors;
@@ -192,7 +207,8 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model, const onnx::NodePr
   return output_tps;
 }
 
-void RunOpAndAddInitializer(onnx::ModelProto& model, const onnx::NodeProto& op) {
+void RunOpAndAddInitializer(onnx::ModelProto& model,
+                            const onnx::NodeProto& op) {
   const auto output_tps = RunOp(model, op);
   for (const auto& output_tp : output_tps) {
     *model.mutable_graph()->add_initializer() = output_tp;
@@ -209,7 +225,8 @@ GetConstantNodes(const onnx::ModelProto& model) {
       std::back_inserter(const_names), [](const auto& x) { return x.name(); });
   // node is already topo sorted
   for (const auto& node : model.graph().node()) {
-    if (std::all_of(node.input().begin(), node.input().end(),
+    if (IsDeterministic(node.domain(), node.name()) &&
+        std::all_of(node.input().begin(), node.input().end(),
                     [&const_names](const auto& x) {
                       return std::find(const_names.begin(), const_names.end(),
                                        x) != const_names.end();
