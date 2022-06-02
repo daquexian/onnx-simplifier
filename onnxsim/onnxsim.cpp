@@ -6,6 +6,7 @@
 #include <fstream>
 #include <numeric>
 
+#include "cxxopts.hpp"
 #include "onnx/common/file_utils.h"
 #include "onnx/shape_inference/implementation.h"
 #include "onnxoptimizer/optimize.h"
@@ -31,49 +32,20 @@ auto FindValueInfoProtoByName(const onnx::ModelProto& model,
   for (const auto& initializer : model.graph().initializer()) {
     if (initializer.name() == name) {
       onnx::ValueInfoProto vi;
-      for (const auto &dim : initializer.dims()) {
-        vi.mutable_type()->mutable_tensor_type()->mutable_shape()->add_dim()->set_dim_value(dim);
+      for (const auto& dim : initializer.dims()) {
+        vi.mutable_type()
+            ->mutable_tensor_type()
+            ->mutable_shape()
+            ->add_dim()
+            ->set_dim_value(dim);
       }
-      vi.mutable_type()->mutable_tensor_type()->set_elem_type(initializer.data_type());
+      vi.mutable_type()->mutable_tensor_type()->set_elem_type(
+          initializer.data_type());
       vi.set_name(name);
       return vi;
     }
   }
   throw std::invalid_argument("no value info " + name);
-}
-
-std::tuple<const void*, ONNXTensorElementDataType, size_t> GetDptrDtypeAndCnt(
-    const onnx::TensorProto& tensor) {
-  const size_t elem_cnt =
-      std::accumulate(tensor.dims().begin(), tensor.dims().end(), (size_t)1,
-                      std::multiplies<>{});
-  if (tensor.has_raw_data()) {
-    return {tensor.raw_data().data(),
-            (ONNXTensorElementDataType)tensor.data_type(), elem_cnt};
-  }
-  const void* dptr = [&]() -> const void* {
-    switch (tensor.data_type()) {
-#define CASE_DTYPE(a, b)             \
-  case onnx::TensorProto::a:         \
-    return tensor.b##_data().data(); \
-    break;
-      CASE_DTYPE(FLOAT, float)
-      CASE_DTYPE(DOUBLE, double)
-      CASE_DTYPE(INT64, int64)
-      CASE_DTYPE(UINT64, uint64)
-      CASE_DTYPE(INT32, int32)
-      CASE_DTYPE(UINT8, int32)
-      CASE_DTYPE(INT8, int32)
-      CASE_DTYPE(UINT16, int32)
-      CASE_DTYPE(INT16, int32)
-      CASE_DTYPE(BOOL, int32)
-#undef CASE_DTYPE
-      default:
-        throw std::invalid_argument("Unknown dtype " +
-                                    std::to_string(tensor.data_type()));
-    }
-  }();
-  return {dptr, (ONNXTensorElementDataType)tensor.data_type(), elem_cnt};
 }
 
 onnx::TensorProto TensorToTensorProto(const Ort::Value& tensor) {
@@ -162,7 +134,7 @@ std::shared_ptr<Ort::Env> GetEnv() {
   return env;
 }
 
-void FoldOp(onnx::ModelProto& model, const onnx::NodeProto& op) {
+std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model, const onnx::NodeProto& op) {
   Ort::AllocatorWithDefaultOptions allocator;
   std::vector<std::string> input_names;
   std::vector<Ort::Value> input_tensors;
@@ -211,10 +183,19 @@ void FoldOp(onnx::ModelProto& model, const onnx::NodeProto& op) {
       run_opts, input_name_ptrs.data(), input_tensors.data(),
       input_tensors.size(), output_name_ptrs.data(), output_name_ptrs.size());
 
+  std::vector<onnx::TensorProto> output_tps;
   for (size_t i = 0; i < output_names.size(); i++) {
     onnx::TensorProto tp = TensorToTensorProto(output_tensors[i]);
     tp.set_name(output_names[i]);
-    *model.mutable_graph()->add_initializer() = tp;
+    output_tps.push_back(tp);
+  }
+  return output_tps;
+}
+
+void RunOpAndAddInitializer(onnx::ModelProto& model, const onnx::NodeProto& op) {
+  const auto output_tps = RunOp(model, op);
+  for (const auto& output_tp : output_tps) {
+    *model.mutable_graph()->add_initializer() = output_tp;
   }
 }
 
@@ -250,14 +231,14 @@ onnx::ModelProto InferShapes(const onnx::ModelProto& model) {
   return result;
 }
 
-onnx::ModelProto FoldConstant(const onnx::ModelProto& model) {
+onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
   const auto& tmp = model;
   {
     onnx::ModelProto model;
     model.CopyFrom(tmp);
     const auto [const_nodes, non_const_nodes] = GetConstantNodes(model);
     for (const auto& x : const_nodes) {
-      FoldOp(model, x);
+      RunOpAndAddInitializer(model, x);
     }
     model.mutable_graph()->clear_node();
     for (const auto& x : non_const_nodes) {
@@ -267,7 +248,7 @@ onnx::ModelProto FoldConstant(const onnx::ModelProto& model) {
   }
 }
 
-onnx::ModelProto Optimize(const onnx::ModelProto& model) {
+onnx::ModelProto _Optimize(const onnx::ModelProto& model) {
   return onnx::optimization::Optimize(
       model, onnx::optimization::GetFuseAndEliminationPass());
 }
@@ -296,15 +277,25 @@ std::function<T(const T&)> FixedPointFn(const std::function<T(const T&)>& f1,
   };
 }
 
-onnx::ModelProto Identity(const onnx::ModelProto& model) {
-  return model;
-}
+onnx::ModelProto Identity(const onnx::ModelProto& model) { return model; }
 
 void Check(const onnx::ModelProto& model) { onnx::checker::check_model(model); }
 
 int main(int argc, char** argv) {
   // force env initialization to register opset
   GetEnv();
+  cxxopts::Options options("onnxsim", "Simplify your ONNX model");
+  options.add_options()("no-opt", "No optimization",
+                        cxxopts::value<bool>()->default_value("false"))(
+      "no-sim", "No simplification",
+      cxxopts::value<bool>()->default_value("false"));
+  auto result = options.parse(argc, argv);
+  const bool opt = !result["no-opt"].as<bool>();
+  const bool sim = !result["no-sim"].as<bool>();
+
+  auto Optimize = opt ? _Optimize : Identity;
+  auto FoldConstant = sim ? _FoldConstant : Identity;
+
   onnx::ModelProto model;
   onnx::LoadProtoFromPath(argv[1], model);
   Check(model);
@@ -314,7 +305,6 @@ int main(int argc, char** argv) {
       FixedPointFn(std::function{OptAndShape}, std::function{FoldConstant}, 5);
   model = OptAndShapeAndFold(model);
   Check(model);
-  std::cout << model.DebugString() << std::endl;
   std::ofstream ofs(argv[2],
                     std::ios::out | std::ios::trunc | std::ios::binary);
   if (!model.SerializeToOstream(&ofs)) {
