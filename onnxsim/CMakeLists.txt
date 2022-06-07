@@ -3,13 +3,14 @@ cmake_minimum_required(VERSION 3.22)
 project(onnxsim CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
+# For MessageDifferencer::Equals
+option(onnxruntime_USE_FULL_PROTOBUF "" ON)
 if (EMSCRIPTEN)
   if (NOT DEFINED ONNX_CUSTOM_PROTOC_EXECUTABLE)
     message(FATAL_ERROR "ONNX_CUSTOM_PROTOC_EXECUTABLE must be set for emscripten")
   endif()
-  add_compile_options("-fexceptions")
 
   option(onnxruntime_BUILD_WEBASSEMBLY "" ON)
   option(onnxruntime_BUILD_WEBASSEMBLY_STATIC_LIB "" ON)
@@ -26,7 +27,6 @@ else()
   # to the single libonnxruntime_webassembly.a
   set(BUILD_SHARED_LIBS ON)
   option(onnxruntime_BUILD_SHARED_LIB "" ON)
-  option(onnxruntime_USE_FULL_PROTOBUF "" ON)
 endif()
 add_subdirectory(third_party/onnxruntime/cmake)
 
@@ -40,7 +40,7 @@ if (EMSCRIPTEN)
 
   target_link_libraries(onnxsim onnxruntime_webassembly onnx_optimizer)
   if (ONNXSIM_WASM_NODE)
-    set_target_properties(onnxsim PROPERTIES LINK_FLAGS "-s NODERAWFS=1 -s ALLOW_MEMORY_GROWTH=1 -s SAFE_HEAP=1 -fexceptions")
+    set_target_properties(onnxsim PROPERTIES LINK_FLAGS "-s NODERAWFS=1 -s ALLOW_MEMORY_GROWTH=1 -s ASSERTIONS=2 -s SAFE_HEAP=1 -s STACK_OVERFLOW_CHECK=1")
   else()
     set_target_properties(onnxsim PROPERTIES LINK_FLAGS "-s ALLOW_MEMORY_GROWTH=1 -s EXIT_RUNTIME=1 -s FORCE_FILESYSTEM=1 -s MODULARIZE=1 -s 'EXPORT_NAME=\"create_onnxsim\"' -s 'EXPORTED_RUNTIME_METHODS=[FS,ccall,cwrap,callMain]' -s EXPORTED_FUNCTIONS=[_main]")
   endif()

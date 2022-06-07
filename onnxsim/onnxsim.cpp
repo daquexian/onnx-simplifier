@@ -1,4 +1,5 @@
 #include <google/protobuf/text_format.h>
+#include <google/protobuf/util/message_differencer.h>
 #include <onnx/onnx_pb.h>
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include "onnx/common/file_utils.h"
 #include "onnx/shape_inference/implementation.h"
 #include "onnxoptimizer/optimize.h"
+#include "third_party/onnxruntime/include/onnxruntime/core/framework/endian.h"
 #include "third_party/onnxruntime/include/onnxruntime/core/session/onnxruntime_cxx_api.h"
 
 bool IsDeterministic(const std::string& domain, const std::string& op) {
@@ -114,7 +116,7 @@ Ort::Value TensorProtoToTensor(const onnx::TensorProto& tensor_proto) {
       allocator, tensor_proto.dims().data(), tensor_proto.dims_size(),
       (ONNXTensorElementDataType)tensor_proto.data_type());
   if (tensor_proto.has_raw_data()) {
-    if (std::endian::native == std::endian::big) {
+    if (onnxruntime::endian::native == onnxruntime::endian::big) {
       throw std::invalid_argument("only little endian is supported");
     }
     memcpy(tensor.GetTensorMutableData<void>(), tensor_proto.raw_data().data(),
@@ -162,6 +164,9 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
   std::vector<Ort::Value> input_tensors;
 
   for (const auto& input : op.input()) {
+    if (std::find(input_names.begin(), input_names.end(), input) != input_names.end()) {
+      continue;
+    }
     auto in_tp = FindInitializerByName(model, input);
     auto input_tensor = TensorProtoToTensor(in_tp);
     input_names.push_back(input);
@@ -173,7 +178,7 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
     *op_model.add_opset_import() = x;
   }
   *op_model.mutable_graph()->add_node() = op;
-  for (const auto& x : op.input()) {
+  for (const auto& x : input_names) {
     *op_model.mutable_graph()->add_input() = FindValueInfoProtoByName(model, x);
   }
   std::vector<std::string> output_names;
@@ -185,6 +190,16 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
     output_names.push_back(x);
   }
 
+  std::vector<const char*> input_name_ptrs;
+  std::vector<const char*> output_name_ptrs;
+  std::transform(input_names.begin(), input_names.end(),
+                 std::back_inserter(input_name_ptrs), [](const auto& x) {
+                   return x.c_str();
+                 });
+  std::transform(output_names.begin(), output_names.end(),
+                 std::back_inserter(output_name_ptrs), [](const auto& x) {
+                   return x.c_str();
+                 });
   auto op_model_str = op_model.SerializeAsString();
   Ort::SessionOptions sess_opts;
   sess_opts.SetLogSeverityLevel(3);
@@ -193,14 +208,6 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
                        sess_opts);
   Ort::RunOptions run_opts;
   run_opts.SetRunLogSeverityLevel(3);
-  std::vector<const char*> input_name_ptrs;
-  std::vector<const char*> output_name_ptrs;
-  std::transform(input_names.begin(), input_names.end(),
-                 std::back_inserter(input_name_ptrs),
-                 [](const auto& x) { return x.c_str(); });
-  std::transform(output_names.begin(), output_names.end(),
-                 std::back_inserter(output_name_ptrs),
-                 [](const auto& x) { return x.c_str(); });
   auto output_tensors = session.Run(
       run_opts, input_name_ptrs.data(), input_tensors.data(),
       input_tensors.size(), output_name_ptrs.data(), output_name_ptrs.size());
@@ -257,6 +264,7 @@ onnx::ModelProto InferShapes(const onnx::ModelProto& model) {
 }
 
 onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
+  std::cout << "FoldConstant" << std::endl;
   const auto& tmp = model;
   {
     onnx::ModelProto model;
@@ -274,6 +282,7 @@ onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
 }
 
 onnx::ModelProto _Optimize(const onnx::ModelProto& model) {
+  std::cout << "Optimize" << std::endl;
   return onnx::optimization::Optimize(
       model, onnx::optimization::GetFuseAndEliminationPass());
 }
@@ -289,11 +298,11 @@ std::function<T(const T&)> FixedPointFn(const std::function<T(const T&)>& f1,
     T& y1 = tmp1;
     T& y2 = tmp2;
     while (_max_iters-- > 0) {
-      if (y1.SerializeAsString() == y2.SerializeAsString()) {
+      if (google::protobuf::util::MessageDifferencer::Equals(y1, y2)) {
         return y2;
       }
       y1 = f1(y2);
-      if (y1.SerializeAsString() == y2.SerializeAsString()) {
+      if (google::protobuf::util::MessageDifferencer::Equals(y1, y2)) {
         return y1;
       }
       y2 = f2(y1);
