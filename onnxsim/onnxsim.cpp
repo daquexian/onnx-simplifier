@@ -164,7 +164,8 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
   std::vector<Ort::Value> input_tensors;
 
   for (const auto& input : op.input()) {
-    if (std::find(input_names.begin(), input_names.end(), input) != input_names.end()) {
+    if (std::find(input_names.begin(), input_names.end(), input) !=
+        input_names.end()) {
       continue;
     }
     auto in_tp = FindInitializerByName(model, input);
@@ -193,13 +194,11 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
   std::vector<const char*> input_name_ptrs;
   std::vector<const char*> output_name_ptrs;
   std::transform(input_names.begin(), input_names.end(),
-                 std::back_inserter(input_name_ptrs), [](const auto& x) {
-                   return x.c_str();
-                 });
+                 std::back_inserter(input_name_ptrs),
+                 [](const auto& x) { return x.c_str(); });
   std::transform(output_names.begin(), output_names.end(),
-                 std::back_inserter(output_name_ptrs), [](const auto& x) {
-                   return x.c_str();
-                 });
+                 std::back_inserter(output_name_ptrs),
+                 [](const auto& x) { return x.c_str(); });
   auto op_model_str = op_model.SerializeAsString();
   Ort::SessionOptions sess_opts;
   sess_opts.SetLogSeverityLevel(3);
@@ -229,6 +228,16 @@ void RunOpAndAddInitializer(onnx::ModelProto& model,
   }
 }
 
+bool HasSubgraph(const onnx::NodeProto& node) {
+  for (const auto& attr : node.attribute()) {
+    if (attr.type() == onnx::AttributeProto::GRAPH ||
+        attr.type() == onnx::AttributeProto::GRAPHS) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::pair<std::vector<onnx::NodeProto>, std::vector<onnx::NodeProto>>
 GetConstantNodes(const onnx::ModelProto& model) {
   std::vector<std::string> const_names;
@@ -239,8 +248,11 @@ GetConstantNodes(const onnx::ModelProto& model) {
       std::back_inserter(const_names), [](const auto& x) { return x.name(); });
   // node is already topo sorted
   for (const auto& node : model.graph().node()) {
+    // clang-format off
     if (IsDeterministic(node.domain(), node.name()) &&
         !IsQDQ(node.domain(), node.name()) &&
+        !HasSubgraph(node) &&
+        // clang-format on
         std::all_of(node.input().begin(), node.input().end(),
                     [&const_names](const auto& x) {
                       return std::find(const_names.begin(), const_names.end(),

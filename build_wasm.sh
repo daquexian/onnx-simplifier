@@ -10,7 +10,7 @@ PROTOC=`pwd`/protoc
 popd
 
 pushd onnxsim
-mkdir -p build
-cd build
-emcmake cmake -DONNX_CUSTOM_PROTOC_EXECUTABLE=$PROTOC -DONNXSIM_WASM_NODE=OFF -GNinja ..
+mkdir -p build-noderawfs
+cd build-noderawfs
+emcmake cmake -DONNX_CUSTOM_PROTOC_EXECUTABLE=$PROTOC -DONNXSIM_WASM_NODE=ON -GNinja ..
 ninja onnxsim
