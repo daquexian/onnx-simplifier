@@ -9,8 +9,7 @@ cmake --build . --parallel `nproc`
 PROTOC=`pwd`/protoc
 popd
 
-pushd onnxsim
-mkdir -p build-noderawfs
-cd build-noderawfs
-emcmake cmake -DONNX_CUSTOM_PROTOC_EXECUTABLE=$PROTOC -DONNXSIM_WASM_NODE=ON -GNinja ..
+mkdir -p build-wasm
+cd build-wasm
+emcmake cmake -DONNX_CUSTOM_PROTOC_EXECUTABLE=$PROTOC -DONNXSIM_WASM_NODE=OFF -GNinja ../onnxsim
 ninja onnxsim

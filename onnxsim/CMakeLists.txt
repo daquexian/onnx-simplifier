@@ -21,6 +21,9 @@ if (EMSCRIPTEN)
   set(onnxruntime_EMSCRIPTEN_SETTINGS "MALLOC=dlmalloc")
 
   option(ONNXSIM_WASM_NODE "For node (enable NODERAWFS etc.)" OFF)
+
+  # For custom onnx target in onnx optimizer
+  set(ONNX_TARGET_NAME onnxruntime_webassembly)
 else()
   # For native build, only shared libs is ok. Otherwise libonnx.a will be linked twice (in onnxruntime and in onnxsim)
   # For emscripten build, since the libonnxruntime_webassembly.a is bundled by `bundle_static_library`, onnxsim can link
@@ -36,8 +39,6 @@ add_subdirectory(third_party/onnx-optimizer)
 add_executable(onnxsim onnxsim.cpp)
 target_include_directories(onnxsim PRIVATE third_party/onnxruntime/onnxruntime third_party/onnxruntime/include/onnxruntime)
 if (EMSCRIPTEN)
-  set(ONNX_TARGET_NAME onnxruntime_webassembly)
-
   target_link_libraries(onnxsim onnxruntime_webassembly onnx_optimizer)
   if (ONNXSIM_WASM_NODE)
     set_target_properties(onnxsim PROPERTIES LINK_FLAGS "-s NODERAWFS=1 -s ALLOW_MEMORY_GROWTH=1 -s ASSERTIONS=2 -s SAFE_HEAP=1 -s STACK_OVERFLOW_CHECK=1")
