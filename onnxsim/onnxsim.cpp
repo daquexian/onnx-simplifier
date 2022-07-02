@@ -1,3 +1,5 @@
+#include "onnxsim.h"
+
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/message_differencer.h>
 #include <onnx/onnx_pb.h>
@@ -7,12 +9,11 @@
 #include <fstream>
 #include <numeric>
 
-#include "cxxopts.hpp"
 #include "onnx/common/file_utils.h"
 #include "onnx/shape_inference/implementation.h"
 #include "onnxoptimizer/optimize.h"
-#include "third_party/onnxruntime/include/onnxruntime/core/framework/endian.h"
-#include "third_party/onnxruntime/include/onnxruntime/core/session/onnxruntime_cxx_api.h"
+#include "../third_party/onnxruntime/include/onnxruntime/core/framework/endian.h"
+#include "../third_party/onnxruntime/include/onnxruntime/core/session/onnxruntime_cxx_api.h"
 
 bool IsDeterministic(const std::string& domain, const std::string& op) {
   // Copy from onnxruntime/core/optimizer/utils.cc
@@ -327,34 +328,17 @@ onnx::ModelProto Identity(const onnx::ModelProto& model) { return model; }
 
 void Check(const onnx::ModelProto& model) { onnx::checker::check_model(model); }
 
-int main(int argc, char** argv) {
-  // force env initialization to register opset
-  GetEnv();
-  cxxopts::Options options("onnxsim", "Simplify your ONNX model");
-  options.add_options()("no-opt", "No optimization",
-                        cxxopts::value<bool>()->default_value("false"))(
-      "no-sim", "No simplification",
-      cxxopts::value<bool>()->default_value("false"));
-  auto result = options.parse(argc, argv);
-  const bool opt = !result["no-opt"].as<bool>();
-  const bool sim = !result["no-sim"].as<bool>();
-
+onnx::ModelProto Simplify(const onnx::ModelProto& model, bool opt, bool sim) {
   auto Optimize = opt ? _Optimize : Identity;
   auto FoldConstant = sim ? _FoldConstant : Identity;
 
-  onnx::ModelProto model;
-  onnx::LoadProtoFromPath(argv[1], model);
   Check(model);
   auto OptAndShape =
       FixedPointFn(std::function{InferShapes}, std::function{Optimize}, 5);
   auto OptAndShapeAndFold =
       FixedPointFn(std::function{OptAndShape}, std::function{FoldConstant}, 5);
-  model = OptAndShapeAndFold(model);
-  Check(model);
-  std::ofstream ofs(argv[2],
-                    std::ios::out | std::ios::trunc | std::ios::binary);
-  if (!model.SerializeToOstream(&ofs)) {
-    throw std::invalid_argument("save model error");
-  }
-  return 0;
+  auto sim_model = OptAndShapeAndFold(model);
+  Check(sim_model);
+  return sim_model;
 }
+

@@ -5,6 +5,12 @@ project(onnxsim CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 
+option(ONNXSIM_PYTHON "" OFF)
+
+if (ONNXSIM_PYTHON AND EMSCRIPTEN)
+  message(STATUS "python and emscripten cannot be built at the same time")
+endif()
+
 # For MessageDifferencer::Equals
 option(onnxruntime_USE_FULL_PROTOBUF "" ON)
 if (EMSCRIPTEN)
@@ -36,8 +42,9 @@ add_subdirectory(third_party/onnxruntime/cmake)
 # configure onnx-optimizer after onnxruntime, because they both depend on onnx and onnxruntime has its own flags for onnx
 add_subdirectory(third_party/onnx-optimizer)
 
-add_executable(onnxsim onnxsim.cpp)
+add_library(onnxsim onnxsim/onnxsim.cpp)
 target_include_directories(onnxsim PRIVATE third_party/onnxruntime/onnxruntime third_party/onnxruntime/include/onnxruntime)
+target_include_directories(onnxsim PUBLIC onnxsim)
 if (EMSCRIPTEN)
   target_link_libraries(onnxsim onnxruntime_webassembly onnx_optimizer)
   if (ONNXSIM_WASM_NODE)
@@ -47,4 +54,14 @@ if (EMSCRIPTEN)
   endif()
 else()
   target_link_libraries(onnxsim onnxruntime onnx_optimizer onnx)
+endif()
+
+add_executable(onnxsim_bin onnxsim/bin/onnxsim_bin.cpp)
+target_link_libraries(onnxsim_bin onnxsim)
+set_target_properties(onnxsim_bin PROPERTIES OUTPUT_NAME onnxsim)
+
+if (ONNXSIM_PYTHON)
+  add_subdirectory(third_party/pybind11)
+  pybind11_add_module(onnxsim_cpp2py_export onnxsim/cpp2py_export.cc)
+  target_link_libraries(onnxsim_cpp2py_export PRIVATE onnxsim)
 endif()
