@@ -4,6 +4,9 @@ import copy
 import os
 import sys
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
+from rich.text import Text
+from rich import print
+from rich.prompt import Confirm
 
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
@@ -380,9 +383,6 @@ def simplify(model: Union[str, onnx.ModelProto],
     config.dynamic_input_shape = dynamic_input_shape
     config.include_subgraph = include_subgraph
 
-    if unused_output is not None:
-        model = remove_unused_output(model, unused_output)
-
 
 
     return model, check_ok
@@ -398,50 +398,78 @@ def main():
                         action='store_true')
     parser.add_argument('--skip-fuse-bn', help='Skip fusing batchnorm into conv.',
                         action='store_true')
-    parser.add_argument('--skip-optimization', help='Skip optimization of ONNX optimizers.',
-                        action='store_true')
+    parser.add_argument('--skip-optimization', help='Skip all ONNX optimizers or some of them. To skip all optimizers, use `onnxsim a.onnx b.onnx --skip-optimization`. To skip some of optimizers, use something like `onnxsim a.onnx b.onnx --skip-optimization fuse_bn_into_conv fuse_pad_into_pool`.',
+                        type=str, nargs='*')
+    parser.add_argument('--skip-constant-folding', action='store_true')
     parser.add_argument(
-        '--input-shape', help='The manually-set static input shape, useful when the input shape is dynamic. The value should be "input_name:dim0,dim1,...,dimN" or simply "dim0,dim1,...,dimN" when there is only one input, for example, "data:1,3,224,224" or "1,3,224,224". Note: you might want to use some visualization tools like netron to make sure what the input name and dimension ordering (NCHW or NHWC) is.', type=str, nargs='+')
+        '--input-shape', help='This argument has been renamed to --overwrite-input-shape, please refer to it', type=str, nargs='+')
     parser.add_argument(
-        '--skip-optimizer', help='Skip a certain ONNX optimizer', type=str, nargs='+')
+        '--overwrite-input-shape', help='The manually-set static input shape, useful when the input shape is dynamic. The value should be "input_name:dim0,dim1,...,dimN" or simply "dim0,dim1,...,dimN" when there is only one input, for example, "data:1,3,224,224" or "1,3,224,224". Note: you might want to use some visualization tools like netron to make sure what the input name and dimension ordering (NCHW or NHWC) is.', type=str, nargs='+')
+    parser.add_argument(
+        '--skip-optimizer', help='Deprecated. Refer to --skip-optimization', type=str, nargs='+')
     parser.add_argument('--skip-shape-inference',
-                        help='Skip shape inference. Shape inference causes segfault on some large models', action='store_true')
-    parser.add_argument('--dynamic-input-shape', help='This option enables dynamic input shape support. "Shape" ops will not be eliminated in this case. If `--dynamic_input_shape` is not specified and `--input-shape` is specified, the input shape in simplified model will be overwritten by the value of `--input_shape`. Note that if you want to check the simplication correctness (i.e. `check_n` > 0), "--input-shape" is also needed for generating random inputs and checking equality.', action='store_true')
+                        help='Skip shape inference', action='store_true')
+    parser.add_argument('--dynamic-input-shape', help='Deprecated. Not needed any more.', action='store_true')
     parser.add_argument(
         '--input-data-path', help='input data, The value should be "input_name1:xxx1.bin"  "input_name2:xxx2.bin ...", input data should be a binary data file.', type=str, nargs='+')
     parser.add_argument(
-        '--custom-lib', help="custom lib path which should be absolute path, if you have custom onnxruntime backend you should use this to register you custom op", type=str)
+        '--custom-lib', help="Deprecated. Not needed any more.", type=str)
     parser.add_argument(
         '--include-subgraph', help='Experimental feature. Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph', action='store_true')
     parser.add_argument(
         '--unused-output', help='Name of unused outputs that will be eliminated from the model', type=str, nargs='+')
+    parser.add_argument(
+        '--no-large-tensor', help='Some ops like Tile and ConstantOfShape can produce large tensor and make the model size much larger. Specifying this flag to skip folding these ops, with loss of some optimization chances.', action='store_true')
 
     args = parser.parse_args()
 
-    print("Simplifying...")
-
-    if args.dynamic_input_shape and args.input_shape is None and args.check_n > 0:
-        raise RuntimeError(
-            'Please pass "--input-shape" argument for generating random input to check correctness. Run "python3 -m onnxsim -h" for details.')
-    if args.input_shape is not None and not args.dynamic_input_shape:
-        print("Note: The input shape of the simplified model will be overwritten by the value of '--input-shape' argument. Pass '--dynamic-input-shape' if it is not what you want. Run 'python3 -m onnxsim -h' for details.")
+    if args.check_n > 0:
+        print(Text('WARNING: checking correctness by random data is not implemented in onnxsim v0.4 for now. Checking will be skipped.', style="bold red"))
+    if args.enable_fuse_bn:
+        print(Text('WARNING: "--enable-fuse-bn" is not needed any more, because fuse bn is enabled by default. "--enable-fuse-bn" flag is ignored now and will raise an error in the future.', style="bold red"))
+    if args.dynamic_input_shape:
+        print(Text('WARNING: "--dynamic-input-shape" is not needed any more, onnxsim v0.4 now handles dynamic input shapes automatically. "--dynamic-input-shape" flag is ignored now and will raise an error in the future.', style="bold red"))
+    if args.custom_lib:
+        print(Text('WARNING: "--custom-lib" is not needed any more, onnxsim v0.4 now handles custom ops automatically. "--custom-lib" flag is ignored now and will raise an error in the future.', style="bold red"))
+    assert not (args.input_shape is not None and args.overwrite_input_shape is not None)
+    if args.input_shape:
+        print(Text('WARNING: "--input-shape" is renamed to "--overwrite-input-shape". Please use it instead.', style="bold red"))
+        args.overwrite_input_shape = args.input_shape
+    if args.include_subgraph:
+        print(Text('WARNING: subgraph optimization is not supported in v0.4 for now.', style="bold red"))
+    assert not (args.skip_optimizer is not None and args.skip_optimization is not None)
+    if args.skip_optimizer:
+        print(Text('WARNING: "--skip-optimizer" is renamed to "--skip-optimization". Please use it instead.', style="bold red"))
+        args.skip_optimization = args.skip_optimizer
+    if args.skip_optimization is None:
+        # user doesn't specify --skip-optimization
+        args.skip_optimization = []
+    elif len(args.skip_optimization) == 0:
+        # user specify --skip-optimization without any certain optimizer name
+        # set it to None means skip all optimizations
+        args.skip_optimization = None
+    if args.skip_fuse_bn and args.skip_optimization is not None:
+        args.skip_optimization.append('fuse_bn_into_conv')
 
     model = onnx.load(args.input_model)
+
+    if not args.no_large_tensor:
+        for node in model.graph.node:
+            if node.op_type in ['Tile', 'ConstantOfShape']:
+                print(Text('Your model contains "Tile" ops or/and "ConstantOfShape" ops. Folding these ops can make the simplified model much larger. If it is not expected, please specify "--no-large-tensor" (which will lose some optimization chances)', style='bold magenta'))
+                break
+
+    print("Simplifying...")
+
+    if args.unused_output is not None:
+        model = remove_unused_output(model, args.unused_output)
+
     model_opt_bytes, check_ok = C.simplify(
         model.SerializeToString(),
-        True,
-        True,
-        # check_n=args.check_n,
-        # perform_optimization=not args.skip_optimization,
-        # skip_fuse_bn=args.skip_fuse_bn,
-        # input_shapes=input_shapes,
-        # skipped_optimizers=args.skip_optimizer,
-        # skip_shape_inference=args.skip_shape_inference,
-        # input_data=input_tensors,
-        # dynamic_input_shape=args.dynamic_input_shape,
-        # custom_lib=args.custom_lib,
-        # include_subgraph=args.include_subgraph,
-        # unused_output=args.unused_output
+        args.skip_optimization,
+        not args.skip_constant_folding,
+        not args.skip_shape_inference,
+        not args.no_large_tensor,
         )
     model_opt = onnx.load_from_string(model_opt_bytes)
 

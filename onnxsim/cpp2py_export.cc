@@ -14,17 +14,21 @@ using namespace pybind11::literals;
 PYBIND11_MODULE(onnxsim_cpp2py_export, onnxsim_cpp2py_export) {
   onnxsim_cpp2py_export.doc() = "ONNX Simplifier";
 
-  onnxsim_cpp2py_export.def("simplify",
-                            [](const py::bytes& model_proto_bytes, bool opt,
-                               bool bin) -> std::pair<py::bytes, bool> {
-                              // force env initialization to register opset
-                              GetEnv();
-                              ModelProto model;
-                              ParseProtoFromPyBytes(&model, model_proto_bytes);
-                              auto const result = Simplify(model, opt, bin);
-                              std::string out;
-                              result.SerializeToString(&out);
-                              return {py::bytes(out), true};
-                            });
+  onnxsim_cpp2py_export.def(
+      "simplify",
+      [](const py::bytes& model_proto_bytes,
+         std::optional<std::vector<std::string>> skip_optimizers,
+         bool constant_folding, bool shape_inference,
+         bool allow_large_tensor) -> std::pair<py::bytes, bool> {
+        // force env initialization to register opset
+        GetEnv();
+        ModelProto model;
+        ParseProtoFromPyBytes(&model, model_proto_bytes);
+        auto const result = Simplify(model, skip_optimizers, constant_folding,
+                                     shape_inference, allow_large_tensor);
+        std::string out;
+        result.SerializeToString(&out);
+        return {py::bytes(out), true};
+      });
 }
 }  // namespace ONNX_NAMESPACE

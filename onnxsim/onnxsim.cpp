@@ -8,12 +8,20 @@
 #include <bit>
 #include <fstream>
 #include <numeric>
+#include <optional>
 
+#include "../third_party/onnxruntime/include/onnxruntime/core/framework/endian.h"
+#include "../third_party/onnxruntime/include/onnxruntime/core/session/onnxruntime_cxx_api.h"
 #include "onnx/common/file_utils.h"
 #include "onnx/shape_inference/implementation.h"
 #include "onnxoptimizer/optimize.h"
-#include "../third_party/onnxruntime/include/onnxruntime/core/framework/endian.h"
-#include "../third_party/onnxruntime/include/onnxruntime/core/session/onnxruntime_cxx_api.h"
+
+struct Config {
+  std::vector<std::string> optimizer_passes;
+  bool allow_large_tensor = true;
+};
+
+Config config;
 
 bool IsDeterministic(const std::string& domain, const std::string& op) {
   // Copy from onnxruntime/core/optimizer/utils.cc
@@ -239,6 +247,10 @@ bool HasSubgraph(const onnx::NodeProto& node) {
   return false;
 }
 
+bool ProdeuceLargeTensor(const onnx::NodeProto& node) {
+  return node.op_type() == "Tile" || node.op_type() == "ConstantOfShape";
+}
+
 std::pair<std::vector<onnx::NodeProto>, std::vector<onnx::NodeProto>>
 GetConstantNodes(const onnx::ModelProto& model) {
   std::vector<std::string> const_names;
@@ -253,6 +265,7 @@ GetConstantNodes(const onnx::ModelProto& model) {
     if (IsDeterministic(node.domain(), node.name()) &&
         !IsQDQ(node.domain(), node.name()) &&
         !HasSubgraph(node) &&
+        (config.allow_large_tensor || !ProdeuceLargeTensor(node)) &&
         // clang-format on
         std::all_of(node.input().begin(), node.input().end(),
                     [&const_names](const auto& x) {
@@ -269,7 +282,7 @@ GetConstantNodes(const onnx::ModelProto& model) {
   return {const_nodes, non_const_nodes};
 }
 
-onnx::ModelProto InferShapes(const onnx::ModelProto& model) {
+onnx::ModelProto _InferShapes(const onnx::ModelProto& model) {
   onnx::ModelProto result;
   result.CopyFrom(model);
   onnx::shape_inference::InferShapes(result);
@@ -293,9 +306,8 @@ onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
   }
 }
 
-onnx::ModelProto _Optimize(const onnx::ModelProto& model) {
-  return onnx::optimization::Optimize(
-      model, onnx::optimization::GetFuseAndEliminationPass());
+onnx::ModelProto Optimize(const onnx::ModelProto& model) {
+  return onnx::optimization::Optimize(model, config.optimizer_passes);
 }
 
 template <typename T>
@@ -326,9 +338,27 @@ onnx::ModelProto Identity(const onnx::ModelProto& model) { return model; }
 
 void Check(const onnx::ModelProto& model) { onnx::checker::check_model(model); }
 
-onnx::ModelProto Simplify(const onnx::ModelProto& model, bool opt, bool sim) {
-  auto Optimize = opt ? _Optimize : Identity;
-  auto FoldConstant = sim ? _FoldConstant : Identity;
+onnx::ModelProto Simplify(
+    const onnx::ModelProto& model,
+    std::optional<std::vector<std::string>> skip_optimizers,
+    bool constant_folding, bool shape_inference, bool allow_large_tensor) {
+  config.allow_large_tensor = allow_large_tensor;
+  // skip_optimizers == nullopt means skiping all optimizers, so
+  // config.optimizer_passes is empty
+  if (skip_optimizers) {
+    std::vector<std::string> passes;
+    const auto all_passes = onnx::optimization::GetFuseAndEliminationPass();
+    for (const auto& pass : all_passes) {
+      if (std::find(skip_optimizers->begin(), skip_optimizers->end(), pass) ==
+          skip_optimizers->end()) {
+        passes.push_back(pass);
+      }
+    }
+    config.optimizer_passes = passes;
+  }
+
+  auto FoldConstant = constant_folding ? _FoldConstant : Identity;
+  auto InferShapes = shape_inference ? _InferShapes : Identity;
 
   Check(model);
   auto OptAndShape =
@@ -339,4 +369,3 @@ onnx::ModelProto Simplify(const onnx::ModelProto& model, bool opt, bool sim) {
   Check(sim_model);
   return sim_model;
 }
-
