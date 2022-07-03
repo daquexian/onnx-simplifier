@@ -18,7 +18,7 @@ import multiprocessing
 
 
 TOP_DIR = os.path.realpath(os.path.dirname(__file__))
-SRC_DIR = os.path.join(TOP_DIR, 'onnxoptimizer')
+SRC_DIR = os.path.join(TOP_DIR, 'onnxsim')
 CMAKE_BUILD_DIR = os.path.join(TOP_DIR, '.setuptools-cmake-build')
 
 WINDOWS = (os.name == 'nt')
@@ -149,6 +149,7 @@ class cmake_build(setuptools.Command):
                 '-DPython_INCLUDE_DIR={}'.format(sysconfig.get_python_inc()),
                 '-DPython_EXECUTABLE={}'.format(sys.executable),
                 '-DBUILD_ONNX_PYTHON=OFF',
+                '-DONNXSIM_PYTHON=ON',
                 '-DONNX_USE_LITE_PROTO={}'.format('ON' if ONNX_USE_LITE_PROTO else 'OFF'),
                 '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
                 '-DONNX_NAMESPACE={}'.format(ONNX_NAMESPACE),
@@ -193,7 +194,7 @@ class cmake_build(setuptools.Command):
             cmake_args.append(TOP_DIR)
             subprocess.check_call(cmake_args)
 
-            build_args = [CMAKE, '--build', os.curdir]
+            build_args = [CMAKE, '--build', os.curdir, '--target onnxsim_cpp2py_export']
             if WINDOWS:
                 build_args.extend(['--config', build_type])
                 build_args.extend(['--', '/maxcpucount:{}'.format(self.jobs)])
@@ -221,27 +222,17 @@ class build_ext(setuptools.command.build_ext.build_ext):
                 elif os.path.exists(release_lib_dir):
                     lib_path = release_lib_dir
             src = os.path.join(lib_path, filename)
-            dst = os.path.join(os.path.realpath(
-                self.build_lib), "onnxoptimizer", filename)
+            dst_dir = os.path.join(os.path.realpath(
+                self.build_lib), "onnxsim")
+            dst = os.path.join(dst_dir, filename)
+            os.makedirs(dst_dir, exist_ok=True)
             self.copy_file(src, dst)
-
-
-class mypy_type_check(ONNXCommand):
-    description = 'Run MyPy type checker'
-
-    def run(self):
-        """Run command."""
-        onnx_script = os.path.realpath(os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "tools/mypy-onnx.py"))
-        returncode = subprocess.call([sys.executable, onnx_script])
-        sys.exit(returncode)
 
 
 cmdclass = {
     'create_version': create_version,
     'cmake_build': cmake_build,
     'build_ext': build_ext,
-    'typecheck': mypy_type_check,
 }
 
 ################################################################################
@@ -250,7 +241,7 @@ cmdclass = {
 
 ext_modules = [
     setuptools.Extension(
-        name=str('onnxoptimizer.onnx_opt_cpp2py_export'),
+        name=str('onnxsim.onnxsim_cpp2py_export'),
         sources=[])
 ]
 

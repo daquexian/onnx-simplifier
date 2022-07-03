@@ -128,3 +128,5 @@ dmypy.json
 compile_commands.json
 temp*.py
 test*.py
+
+.setuptools-cmake-build/

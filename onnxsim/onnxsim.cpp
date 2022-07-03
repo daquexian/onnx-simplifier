@@ -277,7 +277,6 @@ onnx::ModelProto InferShapes(const onnx::ModelProto& model) {
 }
 
 onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
-  std::cout << "FoldConstant" << std::endl;
   const auto& tmp = model;
   {
     onnx::ModelProto model;
@@ -295,7 +294,6 @@ onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
 }
 
 onnx::ModelProto _Optimize(const onnx::ModelProto& model) {
-  std::cout << "Optimize" << std::endl;
   return onnx::optimization::Optimize(
       model, onnx::optimization::GetFuseAndEliminationPass());
 }
