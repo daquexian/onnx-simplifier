@@ -1,4 +1,3 @@
-from onnxsim.onnx_simplifier import main
-from onnxsim.onnxsim_cpp2py_export import simplify
+from onnxsim.onnx_simplifier import simplify, main
 
 __version__ = '0.0.0'

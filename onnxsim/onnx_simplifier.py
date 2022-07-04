@@ -20,6 +20,7 @@ import numpy as np  # type: ignore
 import onnxsim.onnxsim_cpp2py_export as C
 from . import model_info
 
+
 def get_output_names(model: onnx.ModelProto) -> List[str]:
     output_names = [opt.name for opt in model.graph.output]
     return output_names
@@ -40,6 +41,86 @@ def remove_unused_output(
             model.graph.output.remove(graph_output)
     onnx.checker.check_model(model)
     return model
+
+
+def simplify(
+    model: Union[str, onnx.ModelProto],
+    check_n: int = 0,
+    perform_optimization: bool = True,
+    skip_fuse_bn: bool = False,
+    input_shapes=None,
+    skipped_optimizers: Optional[List[str]] = None,
+    skip_shape_inference=False,
+    input_data=None,
+    dynamic_input_shape: bool = False,
+    custom_lib: Optional[str] = None,
+    include_subgraph: bool = False,
+    unused_output: Optional[Sequence[str]] = None,
+    allow_large_tensor: bool = True,
+) -> Tuple[onnx.ModelProto, bool]:
+    """
+    :param model: onnx ModelProto object or file path
+    :param check_n: The simplified model will be checked for `check_n` times by random inputs
+    :param perform_optimization: Whether to run onnx optimizer on the model
+    :param skip_fuse_bn: Skip fuse_bn_into_conv onnx optimizer
+    :param input_shapes: If the model has dynamic input shape, user must pass a fixed input shape
+            for generating random inputs and checking equality. (Also see "dynamic_input_shape" param)
+    :param skipped_optimizers: Skip some specific onnx optimizers
+    :param skip_shape_inference: Skip shape inference (sometimes shape inference will crash)
+    :param input_data: Feed custom input data for checking if needed
+    :param dynamic_input_shape: Indicates whether the input shape should be dynamic. Note that
+            input_shapes is also needed even if dynamic_input_shape is True,
+            the value of input_shapes will be used when generating random inputs for checking equality.
+            If 'dynamic_input_shape' is False, the input shape in simplified model will be overwritten
+            by the value of 'input_shapes' param.
+    :param custom_lib: onnxruntime custom ops's shared library
+    :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
+    :param unused_output: name of unused outputs that will be eliminated from the model
+    :return: A tuple (simplified model, success(True) or failed(False))
+    """
+    if (
+        input_shapes is not None
+        or input_data is not None
+        or dynamic_input_shape is not None
+        or custom_lib is not None
+        or include_subgraph is not None
+    ):
+        print(
+            Text(
+                "WARNING: The argument you used is deprecated, please refer to the latest documentation.",
+                style="bold red",
+            )
+        )
+    if check_n > 0:
+        print(
+            Text(
+                "WARNING: checking correctness by random data is not implemented in onnxsim v0.4 for now. Checking will be skipped.",
+                style="bold red",
+            )
+        )
+
+    if not perform_optimization:
+        # None means skip all optimizers
+        skipped_optimizers = None
+    elif skipped_optimizers is None:
+        skipped_optimizers = []
+
+    if skip_fuse_bn and skipped_optimizers is not None:
+        skipped_optimizers.append("fuse_bn_into_conv")
+    if isinstance(model, str):
+        model = onnx.load(model)
+    if unused_output is not None:
+        model = remove_unused_output(model, unused_output)
+
+    model_opt_bytes, check_ok = C.simplify(
+        model.SerializeToString(),
+        skipped_optimizers,
+        True,
+        not skip_shape_inference,
+        allow_large_tensor,
+    )
+    model_opt = onnx.load_from_string(model_opt_bytes)
+    return model_opt, check_ok
 
 
 def main():
