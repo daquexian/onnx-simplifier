@@ -115,7 +115,9 @@ def test_dynamic_batch_size():
             "input_names": ["input"],
             "dynamic_axes": {"input": {0: "batch_size"}},
         },
-        simplify_kwargs={"dynamic_input_shape": True},
+        simplify_kwargs={
+            "test_input_shapes": {"input": [2, 3, 4, 5]}
+        },
     )
     assert len(sim_model.graph.node) == 1    
 
@@ -131,6 +133,7 @@ def test_torchvision_fasterrcnn_fpn():
 
 
 # maskrcnn is only supported in opset 11 and higher
+@skip_in_ci()
 def test_torchvision_maskrcnn_fpn_opset11():
     model = tv.models.detection.maskrcnn_resnet50_fpn(pretrained=False)
     x = [torch.rand(3, 300, 400), torch.rand(3, 500, 400)]

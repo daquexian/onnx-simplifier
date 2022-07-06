@@ -1,0 +1,110 @@
+name: Build and Test
+
+on: [push, pull_request]
+env:
+  ONNXSIM_CI: 1
+
+jobs:
+  build_wheels:
+    env:
+      CIBW_ARCHS_MACOS: x86_64 universal2
+      CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+      CIBW_BEFORE_ALL_LINUX: WD=`pwd` && /opt/python/cp38-cp38/bin/python -m pip install cmake && cp /opt/_internal/cpython-3.8.13/bin/cmake /usr/local/bin/cmake && cmake --version && whereis cmake
+      CIBW_BEFORE_ALL_MACOS: WD=`pwd` && pip install cmake
+      CIBW_TEST_REQUIRES_LINUX: pytest==5.4.3 flake8 onnxruntime 
+      CIBW_TEST_REQUIRES_MACOS: pytest==5.4.3 
+      CIBW_TEST_REQUIRES_WINDOWS: pytest==5.4.3 
+      CIBW_BEFORE_TEST_LINUX: pip install torch==1.10.2+cpu torchvision==0.11.3+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+      CIBW_BEFORE_TEST_MACOS: pip install torch torchvision
+      CIBW_BEFORE_TEST_WINDOWS: pip install torch torchvision
+      CIBW_TEST_COMMAND: pytest {project}/tests/test_python_api.py
+      CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON"
+      CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON"
+      # Only build on Python 3 and skip 32-bit builds
+      CIBW_BUILD: cp3?-*
+      # Skip python 3.6
+      CIBW_SKIP: "cp36-* *-win32 *-manylinux_i686 *-musllinux_*"
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, windows-2019, macos-10.15]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        fetch-depth: 0
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v2.7.0
+    # - uses: actions/upload-artifact@v2
+    #   with:
+    #     path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Build sdist
+      run: pipx run build --sdist
+
+    - name: Install and test sdist
+      run: |
+        # It's important to leave the project directory where a 'onnxoptimizer' subdirectory exists
+        cd dist
+        python3 -m pip install *.tar.gz
+        python3 -c "import onnxsim; print(dir(onnxsim))"
+
+    # - uses: actions/upload-artifact@v2
+    #   with:
+    #     path: dist/*.tar.gz
+
+  build_wasm:
+    name: Build WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - uses: mymindstorm/setup-emsdk@v11
+    - uses: seanmiddleditch/gha-setup-ninja@v3
+    - name: Verify
+      run: emcc -v
+
+    - name: Build
+      run: ./build_wasm.sh
+
+  build_wasm_with_noderawfs:
+    name: Build WebAssembly with NODERAWFS
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - uses: mymindstorm/setup-emsdk@v11
+    - uses: seanmiddleditch/gha-setup-ninja@v3
+    - name: Verify
+      run: emcc -v
+
+    - name: Build
+      run: ./build_wasm.sh ON
+
+  build_native:
+    name: Build Native
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - uses: seanmiddleditch/gha-setup-ninja@v3
+
+    - name: Build
+      run: |
+        mkdir build-native
+        cd build-native
+        cmake -GNinja ..
+        ninja onnxsim_bin

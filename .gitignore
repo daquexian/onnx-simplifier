@@ -124,3 +124,10 @@ dmypy.json
 
 .idea/
 *.onnx
+
+compile_commands.json
+temp*.py
+test*.py
+
+.setuptools-cmake-build/
+onnxsim/version.py
