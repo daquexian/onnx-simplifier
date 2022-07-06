@@ -6,6 +6,7 @@ import sys
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
 from rich.text import Text
 from rich import print
+import numpy as np
 
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
@@ -15,6 +16,12 @@ import onnxruntime as rt  # type: ignore
 
 import onnxsim.onnxsim_cpp2py_export as C
 from . import model_info
+from . import model_checking
+
+
+TensorShape = List[int]
+TensorShapes = Dict[str, TensorShape]
+TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
 
 
 def get_output_names(model: onnx.ModelProto) -> List[str]:
@@ -39,12 +46,38 @@ def remove_unused_output(
     return model
 
 
+def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorShapesWithOptionalKey) -> TensorShapes:
+    def get_inputs(model: onnx.ModelProto) -> List[onnx.ValueInfoProto]:
+        initializer_names = [x.name for x in model.graph.initializer]
+        return [ipt for ipt in model.graph.input if ipt.name not in initializer_names]
+
+    def get_input_names(model: onnx.ModelProto) -> List[str]:
+        input_names = [ipt.name for ipt in get_inputs(model)]
+        return input_names
+
+    input_names = get_input_names(model)
+    if None in input_shapes:
+        if len(input_names) == 1:
+            input_shapes[input_names[0]] = input_shapes[None]
+            del input_shapes[None]
+        else:
+            raise RuntimeError(
+                'The model has more than 1 inputs, please use the format "input_name:dim0,dim1,...,dimN" in --input-shape')
+    for x in input_shapes:
+        if x not in input_names:
+            raise RuntimeError(
+                'The model doesn\'t have input named "{}"'.format(x))
+
+    return input_shapes  # type: ignore
+
+
 def simplify(
     model: Union[str, onnx.ModelProto],
     check_n: int = 0,
     perform_optimization: bool = True,
     skip_fuse_bn: bool = False,
-    input_shapes=None,
+    overwrite_input_shapes=None,
+    test_input_shapes=None,
     skipped_optimizers: Optional[List[str]] = None,
     skip_shape_inference=False,
     input_data=None,
@@ -59,38 +92,23 @@ def simplify(
     :param check_n: The simplified model will be checked for `check_n` times by random inputs
     :param perform_optimization: Whether to run onnx optimizer on the model
     :param skip_fuse_bn: Skip fuse_bn_into_conv onnx optimizer
-    :param input_shapes: If the model has dynamic input shape, user must pass a fixed input shape
-            for generating random inputs and checking equality. (Also see "dynamic_input_shape" param)
+    :param overwrite_input_shapes: If the model has dynamic input shape, user must pass a fixed input shape
+            for generating random inputs and checking equality.
+    :param test_input_shapes: If the model has dynamic input shape, user must pass a fixed input shape
+            for generating random inputs and checking equality.
     :param skipped_optimizers: Skip some specific onnx optimizers
     :param skip_shape_inference: Skip shape inference (sometimes shape inference will crash)
     :param input_data: Feed custom input data for checking if needed
-    :param dynamic_input_shape: Indicates whether the input shape should be dynamic. Note that
-            input_shapes is also needed even if dynamic_input_shape is True,
-            the value of input_shapes will be used when generating random inputs for checking equality.
-            If 'dynamic_input_shape' is False, the input shape in simplified model will be overwritten
-            by the value of 'input_shapes' param.
+    :param dynamic_input_shape: Deprecated. Not needed anymore.
     :param custom_lib: onnxruntime custom ops's shared library
     :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
     :param unused_output: name of unused outputs that will be eliminated from the model
     :return: A tuple (simplified model, success(True) or failed(False))
     """
-    if (
-        input_shapes is not None
-        or input_data is not None
-        or dynamic_input_shape is not None
-        or custom_lib is not None
-        or include_subgraph is not None
-    ):
+    if dynamic_input_shape:
         print(
             Text(
-                "WARNING: The argument you used is deprecated, please refer to the latest documentation.",
-                style="bold red",
-            )
-        )
-    if check_n > 0:
-        print(
-            Text(
-                "WARNING: checking correctness by random data is not implemented in onnxsim v0.4 for now. Checking will be skipped.",
+                "WARNING: The argument `dynamic_input_shape=True` is not needed any more, onnxsim can now support dynamic input shapes natively, please refer to the latest documentation.",
                 style="bold red",
             )
         )
@@ -105,6 +123,18 @@ def simplify(
         skipped_optimizers.append("fuse_bn_into_conv")
     if isinstance(model, str):
         model = onnx.load(model)
+    if overwrite_input_shapes is None:
+        overwrite_input_shapes = {}
+    overwrite_input_shapes = check_and_update_input_shapes(
+        model, overwrite_input_shapes)
+    test_input_shapes = check_and_update_input_shapes(
+        model, test_input_shapes)
+
+    for name, input_shape in overwrite_input_shapes.items():
+        for ipt in model.graph.input:
+            if ipt.name == name:
+                for i, dim in enumerate(ipt.type.tensor_type.shape.dim):
+                    dim.dim_value = input_shape[i]
     if unused_output is not None:
         model = remove_unused_output(model, unused_output)
 
@@ -116,6 +146,9 @@ def simplify(
         allow_large_tensor,
     )
     model_opt = onnx.load_from_string(model_opt_bytes)
+    check_ok = model_checking.compare(
+        model_opt, model, check_n, test_input_shapes, input_data, custom_lib
+    )
     return model_opt, check_ok
 
 
@@ -123,10 +156,12 @@ class PyModelExecutor(C.ModelExecutor):
     def Run(self, model_str: str, inputs_str: List[str]):
         model = onnx.ModelProto()
         model.ParseFromString(model_str)
+
         def deserialize_tp(tp_str):
             tp = onnx.TensorProto()
             tp.ParseFromString(tp_str)
             return tp
+
         input_tps = map(deserialize_tp, inputs_str)
         input_arrs = map(onnx.numpy_helper.to_array, input_tps)
         input_names = [x.name for x in model.graph.input]
@@ -134,13 +169,18 @@ class PyModelExecutor(C.ModelExecutor):
         sess_options = rt.SessionOptions()
         sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
         sess_options.log_severity_level = 3
-        sess = rt.InferenceSession(model.SerializeToString(
-        ), sess_options=sess_options, providers=['CPUExecutionProvider'])
+        sess = rt.InferenceSession(
+            model.SerializeToString(),
+            sess_options=sess_options,
+            providers=["CPUExecutionProvider"],
+        )
         output_names = [x.name for x in sess.get_outputs()]
         run_options = rt.RunOptions()
         run_options.log_severity_level = 3
         output_arrs = sess.run(output_names, inputs, run_options=run_options)
-        return [onnx.numpy_helper.from_array(x).SerializeToString() for x in output_arrs]
+        return [
+            onnx.numpy_helper.from_array(x).SerializeToString() for x in output_arrs
+        ]
 
 
 def main():
@@ -177,7 +217,13 @@ def main():
     )
     parser.add_argument(
         "--overwrite-input-shape",
-        help='The manually-set static input shape, useful when the input shape is dynamic. The value should be "input_name:dim0,dim1,...,dimN" or simply "dim0,dim1,...,dimN" when there is only one input, for example, "data:1,3,224,224" or "1,3,224,224". Note: you might want to use some visualization tools like netron to make sure what the input name and dimension ordering (NCHW or NHWC) is.',
+        help='Overwrite the input shape. The format is "input_name:dim0,dim1,...,dimN" or simply "dim0,dim1,...,dimN" when there is only one input, for example, "data:1,3,224,224" or "1,3,224,224". Note: you might want to use some visualization tools like netron to make sure what the input name and dimension ordering (NCHW or NHWC) is.',
+        type=str,
+        nargs="+",
+    )
+    parser.add_argument(
+        "--test-input-shape",
+        help='The input shape to generated random inputs for test, useful when the input shape is dynamic. The format is "input_name:dim0,dim1,...,dimN" or simply "dim0,dim1,...,dimN" when there is only one input, for example, "data:1,3,224,224" or "1,3,224,224". Note: you might want to use some visualization tools like netron to make sure what the input name and dimension ordering (NCHW or NHWC) is.',
         type=str,
         nargs="+",
     )
@@ -223,13 +269,6 @@ def main():
 
     args = parser.parse_args()
 
-    if args.check_n > 0:
-        print(
-            Text(
-                "WARNING: checking correctness by random data is not implemented in onnxsim v0.4 for now. Checking will be skipped.",
-                style="bold red",
-            )
-        )
     if args.enable_fuse_bn:
         print(
             Text(
@@ -241,13 +280,6 @@ def main():
         print(
             Text(
                 'WARNING: "--dynamic-input-shape" is not needed any more, onnxsim v0.4 now handles dynamic input shapes automatically. "--dynamic-input-shape" flag is ignored now and will raise an error in the future.',
-                style="bold red",
-            )
-        )
-    if args.custom_lib:
-        print(
-            Text(
-                'WARNING: "--custom-lib" is not needed any more, onnxsim v0.4 now handles custom ops automatically. "--custom-lib" flag is ignored now and will raise an error in the future.',
                 style="bold red",
             )
         )
@@ -285,6 +317,23 @@ def main():
         args.skip_optimization = None
     if args.skip_fuse_bn and args.skip_optimization is not None:
         args.skip_optimization.append("fuse_bn_into_conv")
+    
+    def parse_shapes(shapes_arg):
+        shapes = {}
+        if shapes_arg is not None:
+            for x in shapes_arg:
+                if ':' not in x:
+                    shapes[None] = list(map(int, x.split(',')))
+                else:
+                    pieces = x.split(':')
+                    # for the input name like input:0
+                    name, shape = ':'.join(
+                        pieces[:-1]), list(map(int, pieces[-1].split(',')))
+                    shapes.update({name: shape})
+        return shapes
+
+    test_input_shapes = parse_shapes(args.test_input_shape)
+    overwrite_input_shapes = parse_shapes(args.overwrite_input_shape)
 
     model = onnx.load(args.input_model)
 
@@ -299,19 +348,32 @@ def main():
                 )
                 break
 
+    input_tensors = None
+    if args.input_data_path is not None:
+        input_tensors = {}
+        for x in args.input_data_path:
+            pieces = x.split(':')
+            name, data = ':'.join(pieces[:-1]), pieces[-1]
+            input_tensors.update({name: np.load(data)})
+
     print("Simplifying...")
 
-    if args.unused_output is not None:
-        model = remove_unused_output(model, args.unused_output)
-
-    model_opt_bytes, check_ok = C.simplify(
-        model.SerializeToString(),
+    model_opt, check_ok = simplify(
+        model,
+        args.check_n,
+        True,
+        False,
+        overwrite_input_shapes,
+        test_input_shapes,
         args.skip_optimization,
-        not args.skip_constant_folding,
-        not args.skip_shape_inference,
+        args.skip_shape_inference,
+        input_tensors,
+        False,
+        args.custom_lib,
+        args.include_subgraph,
+        args.unused_output,
         not args.no_large_tensor,
     )
-    model_opt = onnx.load_from_string(model_opt_bytes)
 
     onnx.save(model_opt, args.output_model)
 
