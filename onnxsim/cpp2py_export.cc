@@ -42,7 +42,7 @@ struct PyModelExecutor : public ModelExecutor {
 
 struct PyModelExecutorTrampoline : public PyModelExecutor {
   /* Inherit the constructors */
-  using PyModelExecutor::ModelExecutor;
+  using PyModelExecutor::PyModelExecutor;
 
   /* Trampoline (need one for each virtual function) */
   std::vector<py::bytes> _PyRun(

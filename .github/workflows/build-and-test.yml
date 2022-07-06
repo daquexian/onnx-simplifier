@@ -104,5 +104,5 @@ jobs:
       run: |
         mkdir build-native
         cd build-native
-        cmake ..
+        cmake -GNinja ..
         ninja onnxsim_bin
