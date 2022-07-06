@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.22)
 
+# For std::filesystem in onnx optimizer
+# Must be a cache variable and be set before project()
+# Reference: https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html
+# It can be a normal variable if policy CMP0126 is set to NEW.
+set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE STRING "Minimum OS X deployment version")
+
 project(onnxsim CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
