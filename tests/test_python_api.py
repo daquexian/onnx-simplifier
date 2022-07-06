@@ -115,7 +115,6 @@ def test_dynamic_batch_size():
             "input_names": ["input"],
             "dynamic_axes": {"input": {0: "batch_size"}},
         },
-        simplify_kwargs={"dynamic_input_shape": True},
     )
     assert len(sim_model.graph.node) == 1    
 

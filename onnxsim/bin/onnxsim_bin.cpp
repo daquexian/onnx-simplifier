@@ -1,9 +1,8 @@
-#include "onnxsim.h"
-
 #include <fstream>
 
 #include "cxxopts.hpp"
 #include "onnx/common/file_utils.h"
+#include "onnxsim.h"
 
 int main(int argc, char** argv) {
   // force env initialization to register opset
@@ -20,7 +19,9 @@ int main(int argc, char** argv) {
   onnx::ModelProto model;
   onnx::LoadProtoFromPath(argv[1], model);
 
-  model = Simplify(model, opt, sim);
+  model = Simplify(
+      model, opt ? std::make_optional<std::vector<std::string>>({}) : std::nullopt,
+      sim, true, true);
 
   std::ofstream ofs(argv[2],
                     std::ios::out | std::ios::trunc | std::ios::binary);
@@ -29,4 +30,3 @@ int main(int argc, char** argv) {
   }
   return 0;
 }
-

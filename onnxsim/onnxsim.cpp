@@ -343,6 +343,7 @@ onnx::ModelProto Simplify(
     std::optional<std::vector<std::string>> skip_optimizers,
     bool constant_folding, bool shape_inference, bool allow_large_tensor) {
   config.allow_large_tensor = allow_large_tensor;
+  config.optimizer_passes.clear();
   // skip_optimizers == nullopt means skiping all optimizers, so
   // config.optimizer_passes is empty
   if (skip_optimizers) {
@@ -362,9 +363,9 @@ onnx::ModelProto Simplify(
 
   Check(model);
   auto OptAndShape =
-      FixedPointFn(std::function{InferShapes}, std::function{Optimize}, 5);
+      FixedPointFn(std::function{InferShapes}, std::function{Optimize}, 15);
   auto OptAndShapeAndFold =
-      FixedPointFn(std::function{OptAndShape}, std::function{FoldConstant}, 5);
+      FixedPointFn(std::function{OptAndShape}, std::function{FoldConstant}, 15);
   auto sim_model = OptAndShapeAndFold(model);
   Check(sim_model);
   return sim_model;

@@ -15,4 +15,4 @@ popd
 mkdir -p build-wasm
 cd build-wasm
 emcmake cmake -DONNX_CUSTOM_PROTOC_EXECUTABLE=$PROTOC -DONNXSIM_WASM_NODE=OFF -GNinja ..
-ninja onnxsim
+ninja onnxsim_bin
