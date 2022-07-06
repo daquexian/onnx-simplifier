@@ -1,4 +1,4 @@
-recursive-include onnxsim *.h *.c *.cc *.proto
+recursive-include onnxsim *.h *.c *.cc *.cpp *.proto
 recursive-include cmake *
 recursive-include third_party *
 include VERSION_NUMBER
