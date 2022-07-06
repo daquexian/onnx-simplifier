@@ -6,16 +6,12 @@ import sys
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
 from rich.text import Text
 from rich import print
-from rich.prompt import Confirm
 
 import onnx  # type: ignore
 import onnx.helper  # type: ignore
 import onnx.shape_inference  # type: ignore
 import onnx.numpy_helper  # type: ignore
 import onnxruntime as rt  # type: ignore
-import onnxoptimizer  # type: ignore
-
-import numpy as np  # type: ignore
 
 import onnxsim.onnxsim_cpp2py_export as C
 from . import model_info

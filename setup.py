@@ -146,6 +146,8 @@ class cmake_build(setuptools.Command):
                 CMAKE,
                 '-DPython_INCLUDE_DIR={}'.format(sysconfig.get_python_inc()),
                 '-DPython_EXECUTABLE={}'.format(sys.executable),
+                # For pybind11
+                '-DPYTHON_EXECUTABLE={}'.format(sys.executable),
                 '-DBUILD_ONNX_PYTHON=OFF',
                 '-DONNXSIM_PYTHON=ON',
                 '-DONNXSIM_BUILTIN_ORT=OFF',
@@ -254,7 +256,10 @@ ext_modules = [
 packages = setuptools.find_packages()
 
 install_requires.extend([
-    'onnx'
+    'onnx',
+    'protobuf >= 3.7.0',
+    'rich',
+    'onnxruntime',
 ])
 
 ################################################################################

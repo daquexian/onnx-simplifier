@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   build_wheels:
     env:
+      CIBW_ARCHS_MACOS: x86_64 universal2
       CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
       CIBW_BEFORE_ALL_LINUX: WD=`pwd` && /opt/python/cp38-cp38/bin/python -m pip install cmake && cp /opt/_internal/cpython-3.8.13/bin/cmake /usr/local/bin/cmake && cmake --version && whereis cmake
       CIBW_BEFORE_ALL_MACOS: WD=`pwd` && pip install cmake
