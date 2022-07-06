@@ -1,8 +1,10 @@
 #pragma once
 
-#include <onnx/onnx_pb.h>
-
+#include <optional>
 #include <memory>
+#include <vector>
+
+#include <onnx/onnx_pb.h>
 
 struct ModelExecutor {
   virtual ~ModelExecutor() = default;

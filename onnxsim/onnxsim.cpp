@@ -5,10 +5,8 @@
 #include <onnx/onnx_pb.h>
 
 #include <algorithm>
-#include <bit>
 #include <fstream>
 #include <numeric>
-#include <optional>
 
 #ifndef NO_BUILTIN_ORT
 #include "../third_party/onnxruntime/include/onnxruntime/core/framework/endian.h"
