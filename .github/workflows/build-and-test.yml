@@ -12,7 +12,6 @@ jobs:
       CIBW_TEST_REQUIRES_LINUX: pytest==5.4.3 flake8 onnxruntime 
       CIBW_TEST_REQUIRES_MACOS: pytest==5.4.3 
       CIBW_TEST_REQUIRES_WINDOWS: pytest==5.4.3 
-      # latest pytorch is not available on py3.5, just ignore the error
       CIBW_BEFORE_TEST_LINUX: pip install torch==1.10.2+cpu torchvision==0.11.3+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
       CIBW_BEFORE_TEST_MACOS: pip install torch torchvision
       CIBW_BEFORE_TEST_WINDOWS: pip install torch torchvision
@@ -59,3 +58,17 @@ jobs:
     # - uses: actions/upload-artifact@v2
     #   with:
     #     path: dist/*.tar.gz
+
+  build_wasm:
+    name: Build WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - uses: mymindstorm/setup-emsdk@v11
+    - name: Verify
+      run: emcc -v
+
+    - name: Build WebAssembly without node raw fs
+      run: ./build_wasm.sh

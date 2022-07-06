@@ -47,10 +47,10 @@ COVERAGE = bool(os.getenv('COVERAGE'))
 ################################################################################
 
 try:
-    version = subprocess.check_output(['git', 'tag', '--points-at', 'HEAD'],
+    version = subprocess.check_output(['git', 'describe', '--tags', '--abbrev=0'],
                                       cwd=TOP_DIR).decode('ascii').strip()
-    if len(version) == 0:
-        version = "git"
+    if version[0] == 'v':
+        version = version[1:]
 except (OSError, subprocess.CalledProcessError):
     version = "unknown"
 
