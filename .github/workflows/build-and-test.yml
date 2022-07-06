@@ -1,6 +1,8 @@
 name: Build and Test
 
 on: [push, pull_request]
+env:
+  ONNXSIM_CI: 1
 
 jobs:
   build_wheels:
