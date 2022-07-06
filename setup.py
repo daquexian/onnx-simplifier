@@ -257,7 +257,6 @@ packages = setuptools.find_packages()
 
 install_requires.extend([
     'onnx',
-    'protobuf >= 3.7.0',
     'rich',
     'onnxruntime',
 ])
