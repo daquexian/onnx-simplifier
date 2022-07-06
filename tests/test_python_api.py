@@ -130,6 +130,7 @@ def test_torchvision_fasterrcnn_fpn():
 
 
 # maskrcnn is only supported in opset 11 and higher
+@skip_in_ci()
 def test_torchvision_maskrcnn_fpn_opset11():
     model = tv.models.detection.maskrcnn_resnet50_fpn(pretrained=False)
     x = [torch.rand(3, 300, 400), torch.rand(3, 500, 400)]
