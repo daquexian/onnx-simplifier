@@ -99,8 +99,6 @@ jobs:
       with:
         submodules: recursive
     - uses: seanmiddleditch/gha-setup-ninja@v3
-    - name: Verify
-      run: emcc -v
 
     - name: Build
       run: |
