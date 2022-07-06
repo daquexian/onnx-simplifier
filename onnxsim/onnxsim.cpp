@@ -25,31 +25,7 @@ struct Config {
 
 Config config;
 
-struct ModelExecutor {
-  virtual ~ModelExecutor() = default;
-  template <class T, typename... Args>
-  static void set_instance(Args&&... args) {
-    if (instance_ != nullptr) {
-      delete instance_;
-    }
-    instance_ = new T(std::forward(args)...);
-  }
-  static std::vector<std::string> Run(
-      const std::string& model_str, const std::vector<std::string>& input_str) {
-    if (instance_ == nullptr) {
-      throw std::runtime_error("empty instance");
-    }
-    return instance_->_Run(model_str, input_str);
-  }
-
- private:
-  static const ModelExecutor* instance_;
-
-  virtual std::vector<std::string> _Run(
-      const std::string& model_str,
-      const std::vector<std::string>& input_str) const = 0;
-};
-const ModelExecutor* ModelExecutor::instance_ = nullptr;
+std::shared_ptr<const ModelExecutor> ModelExecutor::instance_ = nullptr;
 
 bool IsDeterministic(const std::string& domain, const std::string& op) {
   // Copy from onnxruntime/core/optimizer/utils.cc
@@ -196,11 +172,9 @@ std::shared_ptr<Ort::Env> GetEnv() {
 }
 
 struct CppModelExecutor : public ModelExecutor {
-  std::vector<std::string> _Run(
-      const std::string& model_str,
-      const std::vector<std::string>& input_str) const override {
-    onnx::ModelProto model;
-    model.ParseFromString(model_str);
+  std::vector<onnx::TensorProto> _Run(
+      const onnx::ModelProto& model,
+      const std::vector<onnx::TensorProto>& inputs) const override {
     std::vector<const char*> input_name_ptrs;
     std::vector<const char*> output_name_ptrs;
     std::transform(
@@ -214,40 +188,31 @@ struct CppModelExecutor : public ModelExecutor {
     Ort::SessionOptions sess_opts;
     sess_opts.SetLogSeverityLevel(3);
     sess_opts.SetGraphOptimizationLevel(ORT_DISABLE_ALL);
+    std::string model_str = model.SerializeAsString();
     Ort::Session session(*GetEnv(), model_str.data(), model_str.size(),
                          sess_opts);
     Ort::RunOptions run_opts;
     run_opts.SetRunLogSeverityLevel(3);
     std::vector<Ort::Value> input_tensors;
-    std::transform(input_str.begin(), input_str.end(),
-                   std::back_inserter(input_tensors),
-                   [](const std::string& tensor_str) {
-                     onnx::TensorProto tp;
-                     tp.ParseFromString(tensor_str);
-                     return TensorProtoToTensor(tp);
-                   });
+    std::transform(inputs.begin(), inputs.end(),
+                   std::back_inserter(input_tensors), TensorProtoToTensor);
     auto output_tensors = session.Run(
         run_opts, input_name_ptrs.data(), input_tensors.data(),
         input_tensors.size(), output_name_ptrs.data(), output_name_ptrs.size());
 
-    std::vector<std::string> output_str;
-    for (size_t i = 0; i < model.graph().output_size(); i++) {
-      onnx::TensorProto tp = TensorToTensorProto(output_tensors[i]);
-      tp.set_name(model.graph().output(i).name());
-      output_str.push_back(tp.SerializeAsString());
-    }
-    return output_str;
+    std::vector<onnx::TensorProto> output_tps;
+    std::transform(output_tensors.begin(), output_tensors.end(),
+                   std::back_inserter(output_tps), TensorToTensorProto);
+    return output_tps;
   }
 };
 
 static int __register_cpp_model_executor __attribute__((unused)) = []() {
-  ModelExecutor::set_instance<CppModelExecutor>();
+  ModelExecutor::set_instance(std::make_shared<CppModelExecutor>());
   return 0;
 }();
 
-void InitEnv() {
-  GetEnv();
-}
+void InitEnv() { GetEnv(); }
 #else
 void InitEnv() {
   // do nothing
@@ -257,7 +222,7 @@ void InitEnv() {
 std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
                                      const onnx::NodeProto& op) {
   std::vector<std::string> input_names;
-  std::vector<std::string> input_tp_strs;
+  std::vector<onnx::TensorProto> input_tps;
 
   for (const auto& input : op.input()) {
     if (std::find(input_names.begin(), input_names.end(), input) !=
@@ -266,7 +231,7 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
     }
     input_names.push_back(input);
     auto in_tp = FindInitializerByName(model, input);
-    input_tp_strs.push_back(in_tp.SerializeAsString());
+    input_tps.push_back(in_tp);
   }
   onnx::ModelProto op_model;
   op_model.set_ir_version(model.ir_version());
@@ -284,17 +249,10 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
     *op_model.mutable_graph()->add_output() = vi;
   }
 
-  auto op_model_str = op_model.SerializeAsString();
-
-  const auto output_tp_strs = ModelExecutor::Run(op_model_str, input_tp_strs);
-
-  std::vector<onnx::TensorProto> output_tps;
-  std::transform(output_tp_strs.begin(), output_tp_strs.end(),
-                 std::back_inserter(output_tps), [](const std::string& x) {
-                   onnx::TensorProto tp;
-                   tp.ParseFromString(x);
-                   return tp;
-                 });
+  auto output_tps = ModelExecutor::Run(op_model, input_tps);
+  for (size_t i = 0; i < op.output_size(); i++) {
+    output_tps[i].set_name(op.output(i));
+  }
   return output_tps;
 }
 

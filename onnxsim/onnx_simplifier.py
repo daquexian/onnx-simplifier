@@ -123,7 +123,33 @@ def simplify(
     return model_opt, check_ok
 
 
+class PyModelExecutor(C.ModelExecutor):
+    def Run(self, model_str: str, inputs_str: List[str]):
+        model = onnx.ModelProto()
+        model.ParseFromString(model_str)
+        def deserialize_tp(tp_str):
+            tp = onnx.TensorProto()
+            tp.ParseFromString(tp_str)
+            return tp
+        input_tps = map(deserialize_tp, inputs_str)
+        input_arrs = map(onnx.numpy_helper.to_array, input_tps)
+        input_names = [x.name for x in model.graph.input]
+        inputs = dict(zip(input_names, input_arrs))
+        sess_options = rt.SessionOptions()
+        sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
+        sess_options.log_severity_level = 3
+        sess = rt.InferenceSession(model.SerializeToString(
+        ), sess_options=sess_options, providers=['CPUExecutionProvider'])
+        output_names = [x.name for x in sess.get_outputs()]
+        run_options = rt.RunOptions()
+        run_options.log_severity_level = 3
+        output_arrs = sess.run(output_names, inputs, run_options=run_options)
+        return [onnx.numpy_helper.from_array(x).SerializeToString() for x in output_arrs]
+
+
 def main():
+    x = PyModelExecutor()
+    C._set_model_executor(x)
     parser = argparse.ArgumentParser()
     parser.add_argument("input_model", help="Input ONNX model")
     parser.add_argument("output_model", help="Output ONNX model")

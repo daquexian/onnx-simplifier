@@ -39,7 +39,6 @@ ONNX_VERIFY_PROTO3 = bool(os.getenv('ONNX_VERIFY_PROTO3') == '1')
 ONNX_NAMESPACE = os.getenv('ONNX_NAMESPACE', 'onnx')
 ONNX_BUILD_TESTS = bool(os.getenv('ONNX_BUILD_TESTS') == '1')
 ONNX_OPT_USE_SYSTEM_PROTOBUF = bool(os.getenv('ONNX_OPT_USE_SYSTEM_PROTOBUF', '0') == '1')
-ONNX_USE_LITE_PROTO = bool(os.getenv('ONNX_USE_LITE_PROTO', '1') == '1')
 
 DEBUG = bool(os.getenv('DEBUG'))
 COVERAGE = bool(os.getenv('COVERAGE'))
@@ -150,7 +149,8 @@ class cmake_build(setuptools.Command):
                 '-DPython_EXECUTABLE={}'.format(sys.executable),
                 '-DBUILD_ONNX_PYTHON=OFF',
                 '-DONNXSIM_PYTHON=ON',
-                '-DONNX_USE_LITE_PROTO={}'.format('ON' if ONNX_USE_LITE_PROTO else 'OFF'),
+                '-DONNXSIM_BUILTIN_ORT=OFF',
+                '-DONNX_USE_LITE_PROTO=OFF',
                 '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
                 '-DONNX_NAMESPACE={}'.format(ONNX_NAMESPACE),
                 '-DPY_EXT_SUFFIX={}'.format(

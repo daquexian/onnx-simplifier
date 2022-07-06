@@ -21,9 +21,10 @@ add_compile_options(
   $<$<COMPILE_LANGUAGE:CXX>:$<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>>
   $<$<COMPILE_LANGUAGE:CXX>:$<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>>
   $<$<COMPILE_LANGUAGE:CUDA>:$<$<CUDA_COMPILER_ID:Clang>:-fcolor-diagnostics>>)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if (ONNXSIM_BUILTIN_ORT)
-  include(cmake/build_ort)
+  include(cmake/build_ort.cmake)
   if (EMSCRIPTEN)
     set(ORT_NAME onnxruntime_webassembly)
   else()
