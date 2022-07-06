@@ -46,7 +46,10 @@ def remove_unused_output(
     return model
 
 
-def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: TensorShapesWithOptionalKey) -> TensorShapes:
+def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: Optional[TensorShapesWithOptionalKey]) -> Optional[TensorShapes]:
+    if input_shapes is None:
+        return None
+
     def get_inputs(model: onnx.ModelProto) -> List[onnx.ValueInfoProto]:
         initializer_names = [x.name for x in model.graph.initializer]
         return [ipt for ipt in model.graph.input if ipt.name not in initializer_names]
