@@ -144,8 +144,6 @@ class PyModelExecutor(C.ModelExecutor):
 
 
 def main():
-    x = PyModelExecutor()
-    C._set_model_executor(x)
     parser = argparse.ArgumentParser()
     parser.add_argument("input_model", help="Input ONNX model")
     parser.add_argument("output_model", help="Output ONNX model")

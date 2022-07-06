@@ -130,3 +130,4 @@ temp*.py
 test*.py
 
 .setuptools-cmake-build/
+onnxsim/version.py

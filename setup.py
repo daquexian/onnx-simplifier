@@ -47,16 +47,23 @@ COVERAGE = bool(os.getenv('COVERAGE'))
 ################################################################################
 
 try:
+    version = subprocess.check_output(['git', 'tag', '--points-at', 'HEAD'],
+                                      cwd=TOP_DIR).decode('ascii').strip()
+    if len(version) == 0:
+        version = "git"
+except (OSError, subprocess.CalledProcessError):
+    version = "unknown"
+
+try:
     git_version = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
                                           cwd=TOP_DIR).decode('ascii').strip()
 except (OSError, subprocess.CalledProcessError):
     git_version = None
 
-with open(os.path.join(TOP_DIR, 'VERSION_NUMBER')) as version_file:
-    VersionInfo = namedtuple('VersionInfo', ['version', 'git_version'])(
-        version=version_file.read().strip(),
-        git_version=git_version
-    )
+VersionInfo = namedtuple('VersionInfo', ['version', 'git_version'])(
+    version=version,
+    git_version=git_version
+)
 
 ################################################################################
 # Pre Check
@@ -206,6 +213,18 @@ class cmake_build(setuptools.Command):
             subprocess.check_call(build_args)
 
 
+class build_py(setuptools.command.build_py.build_py):
+    def run(self):
+        self.run_command('create_version')
+        return setuptools.command.build_py.build_py.run(self)
+
+
+class develop(setuptools.command.develop.develop):
+    def run(self):
+        self.run_command('build_py')
+        setuptools.command.develop.develop.run(self)
+
+
 class build_ext(setuptools.command.build_ext.build_ext):
     def run(self):
         self.run_command('cmake_build')
@@ -236,6 +255,8 @@ cmdclass = {
     'create_version': create_version,
     'cmake_build': cmake_build,
     'build_ext': build_ext,
+    'build_py': build_py,
+    'develop': develop,
 }
 
 ################################################################################
