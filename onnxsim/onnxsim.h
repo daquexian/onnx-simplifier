@@ -4,11 +4,8 @@
 
 #include <memory>
 
-namespace Ort {
-class Env;
-}
+void InitEnv();
 
-std::shared_ptr<Ort::Env> GetEnv();
 onnx::ModelProto Simplify(
     const onnx::ModelProto& model,
     std::optional<std::vector<std::string>> skip_optimizers,

@@ -21,7 +21,7 @@ PYBIND11_MODULE(onnxsim_cpp2py_export, onnxsim_cpp2py_export) {
          bool constant_folding, bool shape_inference,
          bool allow_large_tensor) -> std::pair<py::bytes, bool> {
         // force env initialization to register opset
-        GetEnv();
+        InitEnv();
         ModelProto model;
         ParseProtoFromPyBytes(&model, model_proto_bytes);
         auto const result = Simplify(model, skip_optimizers, constant_folding,

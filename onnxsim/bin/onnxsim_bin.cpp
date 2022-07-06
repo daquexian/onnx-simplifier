@@ -6,7 +6,7 @@
 
 int main(int argc, char** argv) {
   // force env initialization to register opset
-  GetEnv();
+  InitEnv();
   cxxopts::Options options("onnxsim", "Simplify your ONNX model");
   options.add_options()("no-opt", "No optimization",
                         cxxopts::value<bool>()->default_value("false"))(
