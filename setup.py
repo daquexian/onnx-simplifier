@@ -191,6 +191,7 @@ class cmake_build(setuptools.Command):
                 log.info('Extra cmake args: {}'.format(extra_cmake_args))
                 cmake_args.extend(extra_cmake_args)
             cmake_args.append(TOP_DIR)
+            print(f"Run command {cmake_args}")
             subprocess.check_call(cmake_args)
 
             build_args = [CMAKE, '--build', os.curdir, '--target onnxsim_cpp2py_export']
@@ -199,6 +200,7 @@ class cmake_build(setuptools.Command):
                 build_args.extend(['--', '/maxcpucount:{}'.format(self.jobs)])
             else:
                 build_args.extend(['--', '-j', str(self.jobs)])
+            print(f"Run command {build_args}")
             subprocess.check_call(build_args)
 
 
