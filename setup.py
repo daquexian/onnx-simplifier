@@ -27,7 +27,6 @@ CMAKE = find_executable('cmake')
 
 install_requires = []
 setup_requires = []
-extras_require = {}
 
 ################################################################################
 # Global variables for controlling the build variant
@@ -262,8 +261,6 @@ install_requires.extend([
 
 setup_requires.append('pytest-runner')
 
-extras_require['mypy'] = ['mypy==0.600']
-
 ################################################################################
 # Final
 ################################################################################
@@ -278,7 +275,6 @@ setuptools.setup(
     include_package_data=True,
     install_requires=install_requires,
     setup_requires=setup_requires,
-    extras_require=extras_require,
     author='ONNX Simplifier Authors',
     author_email='daquexian566@gmail.com',
     url='https://github.com/daquexian/onnx-simplifier',
