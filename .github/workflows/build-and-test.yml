@@ -31,6 +31,7 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
+        fetch-depth: 0
     - name: Build wheels
       uses: pypa/cibuildwheel@v2.7.0
     # - uses: actions/upload-artifact@v2
@@ -44,6 +45,7 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
+        fetch-depth: 0
 
     - name: Build sdist
       run: pipx run build --sdist
@@ -67,8 +69,42 @@ jobs:
       with:
         submodules: recursive
     - uses: mymindstorm/setup-emsdk@v11
+    - uses: seanmiddleditch/gha-setup-ninja@v3
     - name: Verify
       run: emcc -v
 
-    - name: Build WebAssembly without node raw fs
+    - name: Build
       run: ./build_wasm.sh
+
+  build_wasm_with_noderawfs:
+    name: Build WebAssembly with NODERAWFS
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - uses: mymindstorm/setup-emsdk@v11
+    - uses: seanmiddleditch/gha-setup-ninja@v3
+    - name: Verify
+      run: emcc -v
+
+    - name: Build
+      run: ./build_wasm.sh ON
+
+  build_native:
+    name: Build Native
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - uses: seanmiddleditch/gha-setup-ninja@v3
+    - name: Verify
+      run: emcc -v
+
+    - name: Build
+      run: |
+        mkdir build-native
+        cd build-native
+        cmake ..
+        ninja onnxsim_bin
