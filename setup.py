@@ -276,10 +276,15 @@ ext_modules = [
 # no need to do fancy stuff so far
 packages = setuptools.find_packages()
 
+# Though we depend on onnxruntime, it has three different packages:
+# onnxruntime, onnxruntime-gpu and onnxruntime-noopenmp.
+# The solution is, we publish two packages, a wheel named onnxsim-no-ort
+# and a sdist package named onnxsim, onnxsim depends on onnxsim-no-ort,
+# and also check if one of onnxruntime packages is installed, and depends
+# on onnxruntime when no existing installed packages.
 install_requires.extend([
     'onnx',
     'rich',
-    'onnxruntime',
 ])
 
 ################################################################################
@@ -293,8 +298,9 @@ setup_requires.append('pytest-runner')
 ################################################################################
 
 setuptools.setup(
-    name="onnxsim",
+    name="onnxsim-no-ort",
     version=VersionInfo.version,
+    description='Simplify your ONNX model',
     ext_modules=ext_modules,
     cmdclass=cmdclass,
     packages=packages,
@@ -305,4 +311,24 @@ setuptools.setup(
     author='ONNX Simplifier Authors',
     author_email='daquexian566@gmail.com',
     url='https://github.com/daquexian/onnx-simplifier',
+    keywords='deep-learning ONNX',
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Topic :: Scientific/Engineering',
+        'Topic :: Software Development'
+    ],
+    python_requires='>=3.6',
+    entry_points={
+        'console_scripts': [
+            'onnxsim=onnxsim:main',
+        ],
+    },
 )
