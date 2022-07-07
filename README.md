@@ -99,6 +99,14 @@ assert check, "Simplified ONNX model could not be validated"
 
 You can see more details of the API in [onnxsim/onnx_simplifier.py](onnxsim/onnx_simplifier.py)
 
+## Projects Using ONNX Simplifier
+
+* [MXNet](https://mxnet.apache.org/versions/1.9.1/api/python/docs/tutorials/deploy/export/onnx.html#Simplify-the-exported-ONNX-model)
+* [MMDetection](https://github.com/open-mmlab/mmdetection)
+* [YOLOv5](https://github.com/ultralytics/yolov5)
+* [ncnn](https://github.com/Tencent/ncnn)
+* ...
+
 ## Chat
 
 We created a Chinese QQ group for ONNX!
