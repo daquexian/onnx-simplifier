@@ -12,8 +12,8 @@ jobs:
       CIBW_BEFORE_ALL_LINUX: WD=`pwd` && /opt/python/cp38-cp38/bin/python -m pip install cmake && cp /opt/_internal/cpython-3.8.13/bin/cmake /usr/local/bin/cmake && cmake --version && whereis cmake
       CIBW_BEFORE_ALL_MACOS: WD=`pwd` && pip install cmake
       CIBW_TEST_REQUIRES_LINUX: pytest==5.4.3 flake8 onnxruntime 
-      CIBW_TEST_REQUIRES_MACOS: pytest==5.4.3 
-      CIBW_TEST_REQUIRES_WINDOWS: pytest==5.4.3 
+      CIBW_TEST_REQUIRES_MACOS: pytest==5.4.3 onnxruntime 
+      CIBW_TEST_REQUIRES_WINDOWS: pytest==5.4.3 onnxruntime 
       CIBW_BEFORE_TEST_LINUX: pip install torch==1.10.2+cpu torchvision==0.11.3+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
       CIBW_BEFORE_TEST_MACOS: pip install torch torchvision
       CIBW_BEFORE_TEST_WINDOWS: pip install torch torchvision
@@ -57,11 +57,13 @@ jobs:
         # It's important to leave the project directory where a 'onnxsim' subdirectory exists
         cd dist
         python3 -m pip install *.tar.gz
+        python3 -m pip install onnxruntime
         python3 -c "import onnxsim; print(dir(onnxsim))"
 
     - name: Build onnxsim sdist
       run: |
         cd .github/workflows/onnxsim-pkg
+        sed -i "s/0.0.0/`echo $TRAVIS_TAG | cut -c 2-`/" setup.py
         pipx run build --sdist
 
     - uses: actions/upload-artifact@v3
