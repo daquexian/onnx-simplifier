@@ -93,7 +93,7 @@ def simplify(
     custom_lib: Optional[str] = None,
     include_subgraph: bool = False,
     unused_output: Optional[Sequence[str]] = None,
-    tensor_size_threshold: int = MAX_TENSOR_SIZE_THRESHOLD,
+    tensor_size_threshold: str = MAX_TENSOR_SIZE_THRESHOLD,
 ) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
@@ -145,6 +145,18 @@ def simplify(
                     dim.dim_value = input_shape[i]
     if unused_output is not None:
         model = remove_unused_output(model, unused_output)
+
+    # https://stackoverflow.com/a/60708339
+    def parse_size(size: str) -> int:
+        units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
+        size = size.upper()
+        #print("parsing size ", size)
+        if not re.match(r' ', size):
+            size = re.sub(r'([KMGT]?B)', r' \1', size)
+        number, unit = [string.strip() for string in size.split()]
+        return int(float(number)*units[unit])
+
+    tensor_size_threshold = parse_size(tensor_size_threshold)
 
     model_opt_bytes = C.simplify(
         model.SerializeToString(),
@@ -348,19 +360,6 @@ def main():
     overwrite_input_shapes = parse_shapes(args.overwrite_input_shape)
 
     model = onnx.load(args.input_model)
-
-    # https://stackoverflow.com/a/60708339
-    def parse_size(size):
-        units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
-        size = size.upper()
-        #print("parsing size ", size)
-        if not re.match(r' ', size):
-            size = re.sub(r'([KMGT]?B)', r' \1', size)
-        number, unit = [string.strip() for string in size.split()]
-        return int(float(number)*units[unit])
-
-    args.tensor_size_threshold = parse_size(args.tensor_size_threshold)
-    print(args.tensor_size_threshold)
 
     if args.tensor_size_threshold == MAX_TENSOR_SIZE_THRESHOLD:
         for node in model.graph.node:
