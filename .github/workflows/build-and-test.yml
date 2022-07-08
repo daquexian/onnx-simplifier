@@ -70,6 +70,9 @@ jobs:
       run: |
         cp README.md LICENSE .github/workflows/onnxsim-pkg/
         cd .github/workflows/onnxsim-pkg
+        export ONNXSIM_PKG_NAME=onnxsim
+        pipx run build --sdist
+        export ONNXSIM_PKG_NAME=onnx-simplifier
         pipx run build --sdist
 
     # From documentation, "If multiple paths are provided as input,

@@ -65,16 +65,16 @@ PYBIND11_MODULE(onnxsim_cpp2py_export, m) {
         [](const py::bytes& model_proto_bytes,
            std::optional<std::vector<std::string>> skip_optimizers,
            bool constant_folding, bool shape_inference,
-           bool allow_large_tensor) -> std::pair<py::bytes, bool> {
+           size_t tensor_size_threshold) -> py::bytes {
           // force env initialization to register opset
           InitEnv();
           ONNX_NAMESPACE::ModelProto model;
           ParseProtoFromPyBytes(&model, model_proto_bytes);
           auto const result = Simplify(model, skip_optimizers, constant_folding,
-                                       shape_inference, allow_large_tensor);
+                                       shape_inference, tensor_size_threshold);
           std::string out;
           result.SerializeToString(&out);
-          return {py::bytes(out), true};
+          return py::bytes(out);
         })
       .def("_set_model_executor", [](std::shared_ptr<PyModelExecutor> executor) {
         ModelExecutor::set_instance(std::move(executor));

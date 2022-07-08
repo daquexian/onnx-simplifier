@@ -18,7 +18,8 @@
 
 struct Config {
   std::vector<std::string> optimizer_passes;
-  bool allow_large_tensor = true;
+  // default value is max
+  size_t tensor_size_threshold = -1;
 };
 
 Config config;
@@ -272,8 +273,56 @@ bool HasSubgraph(const onnx::NodeProto& node) {
   return false;
 }
 
-bool ProdeuceLargeTensor(const onnx::NodeProto& node) {
-  return node.op_type() == "Tile" || node.op_type() == "ConstantOfShape";
+size_t size_of_dtype(onnx::TensorProto::DataType dtype) {
+  switch (dtype) {
+    case onnx::TensorProto::DataType::TensorProto_DataType_BOOL:
+    case onnx::TensorProto::DataType::TensorProto_DataType_INT8:
+    case onnx::TensorProto::DataType::TensorProto_DataType_UINT8:
+      return 1;
+    case onnx::TensorProto::DataType::TensorProto_DataType_BFLOAT16:
+    case onnx::TensorProto::DataType::TensorProto_DataType_FLOAT16:
+    case onnx::TensorProto::DataType::TensorProto_DataType_INT16:
+    case onnx::TensorProto::DataType::TensorProto_DataType_UINT16:
+      return 2;
+    case onnx::TensorProto::DataType::TensorProto_DataType_FLOAT:
+    case onnx::TensorProto::DataType::TensorProto_DataType_INT32:
+    case onnx::TensorProto::DataType::TensorProto_DataType_UINT32:
+      return 4;
+    case onnx::TensorProto::DataType::TensorProto_DataType_DOUBLE:
+    case onnx::TensorProto::DataType::TensorProto_DataType_INT64:
+    case onnx::TensorProto::DataType::TensorProto_DataType_UINT64:
+    case onnx::TensorProto::DataType::TensorProto_DataType_COMPLEX64:
+      return 8;
+    case onnx::TensorProto::DataType::TensorProto_DataType_COMPLEX128:
+      return 16;
+    // Don't know the size of string.. Just return 16.
+    case onnx::TensorProto::DataType::TensorProto_DataType_STRING:
+      return 16;
+    case onnx::TensorProto::DataType::TensorProto_DataType_UNDEFINED:
+      throw std::invalid_argument("Undefined datatype");
+  }
+  throw std::invalid_argument("Unknown datatype " + std::to_string(dtype));
+}
+
+bool ProduceLargeTensor(const onnx::ModelProto& model,
+                        const onnx::NodeProto& node, size_t threshold) {
+  std::set<std::string> large_tensor_ops{"Tile", "ConstantOfShape"};
+  if (large_tensor_ops.find(node.op_type()) == large_tensor_ops.end()) {
+    return false;
+  }
+  for (const auto& value_info : model.graph().value_info()) {
+    if (value_info.name() == node.output(0)) {
+      size_t size = size_of_dtype(static_cast<onnx::TensorProto::DataType>(
+          value_info.type().tensor_type().elem_type()));
+      for (const auto& dim : value_info.type().tensor_type().shape().dim()) {
+        size *= dim.dim_value();
+      }
+      if (size > threshold) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 std::pair<std::vector<onnx::NodeProto>, std::vector<onnx::NodeProto>>
@@ -290,7 +339,7 @@ GetConstantNodes(const onnx::ModelProto& model) {
     if (IsDeterministic(node.domain(), node.name()) &&
         !IsQDQ(node.domain(), node.name()) &&
         !HasSubgraph(node) &&
-        (config.allow_large_tensor || !ProdeuceLargeTensor(node)) &&
+        !ProduceLargeTensor(model, node, config.tensor_size_threshold) &&
         // clang-format on
         std::all_of(node.input().begin(), node.input().end(),
                     [&const_names](const auto& x) {
@@ -366,8 +415,8 @@ void Check(const onnx::ModelProto& model) { onnx::checker::check_model(model); }
 onnx::ModelProto Simplify(
     const onnx::ModelProto& model,
     std::optional<std::vector<std::string>> skip_optimizers,
-    bool constant_folding, bool shape_inference, bool allow_large_tensor) {
-  config.allow_large_tensor = allow_large_tensor;
+    bool constant_folding, bool shape_inference, size_t tensor_size_threshold) {
+  config.tensor_size_threshold = tensor_size_threshold;
   config.optimizer_passes.clear();
   // skip_optimizers == nullopt means skiping all optimizers, so
   // config.optimizer_passes is empty

@@ -1,7 +1,8 @@
 from setuptools import setup, find_packages  # type: ignore
+import os
 
 install_requires = [
-    'onnxsim-no-ort',
+    'onnxsim-no-ort==0.0.0',
 ]
 
 try:
@@ -9,8 +10,12 @@ try:
 except:
     install_requires.append('onnxruntime >= 1.11.1')
 
+# onnxsim or onnx-simplifier
+pkg_name = os.getenv("ONNXSIM_PKG_NAME")
+assert pkg_name is not None
+
 setup(
-    name='onnxsim',
+    name=pkg_name,
     # The version will be updated automatically in CI
     version='0.0.0',
     description='Simplify your ONNX model',
