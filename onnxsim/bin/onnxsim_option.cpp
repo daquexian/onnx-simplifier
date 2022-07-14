@@ -7,8 +7,8 @@ void OnnxsimOption::Parse(int argc, char** argv) {
   // clang-format off
   cxx_options.add_options()
   ("h,help",              "Print help")
-  ("i,input-model",       "Input onnx model filename, MUST have this option",   cxxopts::value<std::string>())
-  ("o,output-model",      "Output onnx model filename, MUST have this option",  cxxopts::value<std::string>())
+  ("i,input-model",       "Input onnx model filename. This argument is required.",   cxxopts::value<std::string>())
+  ("o,output-model",      "Output onnx model filename. This argument is required.",  cxxopts::value<std::string>())
   ("no-opt",              "No optimization",             cxxopts::value<bool>()->default_value("false"))
   ("no-sim",              "No simplification",           cxxopts::value<bool>()->default_value("false"))
   ;
