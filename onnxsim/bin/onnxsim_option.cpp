@@ -4,7 +4,7 @@
 void OnnxsimOption::Parse(int argc, char** argv) {
   cxxopts::Options cxx_options("onnxsim", "Simplify your ONNX model");
 
-  // Do NOT format the following lines.
+  // clang-format off
   cxx_options.add_options()
   ("h,help",              "Print help")
   ("i,input-model",       "Input onnx model filename, MUST have this option",   cxxopts::value<std::string>())
@@ -12,6 +12,7 @@ void OnnxsimOption::Parse(int argc, char** argv) {
   ("no-opt",              "No optimization",             cxxopts::value<bool>()->default_value("false"))
   ("no-sim",              "No simplification",           cxxopts::value<bool>()->default_value("false"))
   ;
+  // clang-format on
 
   try {
     options_ = cxx_options.parse(argc, argv);
