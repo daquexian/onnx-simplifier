@@ -188,8 +188,12 @@ def simplify(
                 not skip_shape_inference,
                 tensor_size_threshold,
             )
+            check_ok = model_checking.compare(
+                os.path.join(tmpdirname, 'opt.onnx'),
+                os.path.join(tmpdirname, 'model.onnx'),
+                check_n, test_input_shapes, input_data, custom_lib
+            )
             model_opt = onnx.load(os.path.join(tmpdirname, 'opt.onnx'))
-            # TODO model_checking doesn't support large models
     return model_opt, check_ok
 
 
