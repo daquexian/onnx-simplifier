@@ -55,7 +55,7 @@ We have published ONNX Simplifier on [convertmodel.com](https://www.convertmodel
 
 
 ```
-pip3 install -U pip && pip3 install onnxsim
+pip3 install -U pip && pip3 install onnx-simplifier
 ```
 
 Then
