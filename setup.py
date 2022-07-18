@@ -28,10 +28,6 @@ CMAKE = find_executable('cmake')
 install_requires = []
 setup_requires = []
 
-################################################################################
-# Global variables for controlling the build variant
-################################################################################
-
 USE_MSVC_STATIC_RUNTIME = bool(os.getenv('USE_MSVC_STATIC_RUNTIME', '0') == '1')
 ONNX_ML = not bool(os.getenv('ONNX_ML') == '0')
 ONNX_VERIFY_PROTO3 = bool(os.getenv('ONNX_VERIFY_PROTO3') == '1')
@@ -41,10 +37,6 @@ ONNX_OPT_USE_SYSTEM_PROTOBUF = bool(os.getenv('ONNX_OPT_USE_SYSTEM_PROTOBUF', '0
 
 DEBUG = bool(os.getenv('DEBUG'))
 COVERAGE = bool(os.getenv('COVERAGE'))
-
-################################################################################
-# Version
-################################################################################
 
 try:
     version = subprocess.check_output(['git', 'describe', '--tags', '--abbrev=0'],
@@ -69,16 +61,7 @@ VersionInfo = namedtuple('VersionInfo', ['version', 'git_version'])(
     git_version=git_version
 )
 
-################################################################################
-# Pre Check
-################################################################################
-
 assert CMAKE, 'Could not find "cmake" executable!'
-
-################################################################################
-# Utilities
-################################################################################
-
 
 @contextmanager
 def cd(path):
@@ -90,11 +73,6 @@ def cd(path):
         yield
     finally:
         os.chdir(orig_path)
-
-
-################################################################################
-# Customized commands
-################################################################################
 
 
 class ONNXCommand(setuptools.Command):
@@ -263,19 +241,11 @@ cmdclass = {
     'develop': develop,
 }
 
-################################################################################
-# Extensions
-################################################################################
-
 ext_modules = [
     setuptools.Extension(
         name=str('onnxsim.onnxsim_cpp2py_export'),
         sources=[])
 ]
-
-################################################################################
-# Packages
-################################################################################
 
 # no need to do fancy stuff so far
 packages = setuptools.find_packages()
@@ -291,15 +261,12 @@ install_requires.extend([
     'rich',
 ])
 
-################################################################################
-# Test
-################################################################################
-
 setup_requires.append('pytest-runner')
 
-################################################################################
-# Final
-################################################################################
+# read the contents of your README file
+from pathlib import Path
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 
 setuptools.setup(
     name=os.getenv("ONNXSIM_PKG_NAME", "onnxsim"),
@@ -316,6 +283,8 @@ setuptools.setup(
     author_email='daquexian566@gmail.com',
     url='https://github.com/daquexian/onnx-simplifier',
     keywords='deep-learning ONNX',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
