@@ -69,10 +69,10 @@ jobs:
         python3 -m pip install onnxruntime
         python3 -m pip install onnxsim-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
-        python3 -m pip uninstall onnxsim
+        python3 -m pip uninstall -y onnxsim
         python3 -m pip install onnx-simplifier-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
-        python3 -m pip uninstall onnx-simplifier
+        python3 -m pip uninstall -y onnx-simplifier
 
     - uses: actions/upload-artifact@v3
       with:
