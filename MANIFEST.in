@@ -3,6 +3,6 @@ recursive-include cmake *
 recursive-include third_party *
 recursive-exclude third_party/onnxruntime *
 recursive-exclude third_party/onnx-optimizer/build *
-recursive-exclude third_party/onnx/build
-recursive-exclude third_party/onnx/onnx/backend
+recursive-exclude third_party/onnx/build *
+recursive-exclude third_party/onnx/onnx/backend *
 include CMakeLists.txt

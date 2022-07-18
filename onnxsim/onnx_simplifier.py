@@ -3,6 +3,7 @@ from collections import OrderedDict
 import copy
 import os
 import sys
+import re
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
 from rich.text import Text
 from rich import print
@@ -74,6 +75,10 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: Optional
     return input_shapes  # type: ignore
 
 
+# A very very large threshold
+MAX_TENSOR_SIZE_THRESHOLD = '10GB'
+
+
 def simplify(
     model: Union[str, onnx.ModelProto],
     check_n: int = 0,
@@ -88,7 +93,7 @@ def simplify(
     custom_lib: Optional[str] = None,
     include_subgraph: bool = False,
     unused_output: Optional[Sequence[str]] = None,
-    allow_large_tensor: bool = True,
+    tensor_size_threshold: str = MAX_TENSOR_SIZE_THRESHOLD,
 ) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
@@ -141,12 +146,24 @@ def simplify(
     if unused_output is not None:
         model = remove_unused_output(model, unused_output)
 
-    model_opt_bytes, check_ok = C.simplify(
+    # https://stackoverflow.com/a/60708339
+    def parse_size(size: str) -> int:
+        units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
+        size = size.upper()
+        #print("parsing size ", size)
+        if not re.match(r' ', size):
+            size = re.sub(r'([KMGT]?B)', r' \1', size)
+        number, unit = [string.strip() for string in size.split()]
+        return int(float(number)*units[unit])
+
+    tensor_size_threshold = parse_size(tensor_size_threshold)
+
+    model_opt_bytes = C.simplify(
         model.SerializeToString(),
         skipped_optimizers,
         True,
         not skip_shape_inference,
-        allow_large_tensor,
+        tensor_size_threshold,
     )
     model_opt = onnx.load_from_string(model_opt_bytes)
     check_ok = model_checking.compare(
@@ -266,8 +283,12 @@ def main():
     )
     parser.add_argument(
         "--no-large-tensor",
-        help="Some ops like Tile and ConstantOfShape can produce large tensor and make the model size much larger. Specifying this flag to skip folding these ops, with loss of some optimization chances.",
-        action="store_true",
+        help="Some ops like Tile and ConstantOfShape can produce large tensor and make the model size much larger. Specifying this flag to skip folding these ops, with loss of some optimization chances. It can be followed with a threshold, for example, --no-large-tensor 1M or --no-large-tensor 100KB.",
+        type=str,
+        const='0B',
+        default=MAX_TENSOR_SIZE_THRESHOLD,
+        nargs="?",
+        dest="tensor_size_threshold",
     )
 
     args = parser.parse_args()
@@ -340,7 +361,7 @@ def main():
 
     model = onnx.load(args.input_model)
 
-    if not args.no_large_tensor:
+    if args.tensor_size_threshold == MAX_TENSOR_SIZE_THRESHOLD:
         for node in model.graph.node:
             if node.op_type in ["Tile", "ConstantOfShape"]:
                 print(
@@ -375,7 +396,7 @@ def main():
         args.custom_lib,
         args.include_subgraph,
         args.unused_output,
-        not args.no_large_tensor,
+        args.tensor_size_threshold,
     )
 
     onnx.save(model_opt, args.output_model)
