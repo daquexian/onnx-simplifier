@@ -55,7 +55,7 @@ else()
   target_link_libraries(onnxsim ${ORT_NAME} onnx_optimizer onnx)
 endif()
 
-add_executable(onnxsim_bin onnxsim/bin/onnxsim_bin.cpp)
+add_executable(onnxsim_bin onnxsim/bin/onnxsim_bin.cpp onnxsim/bin/onnxsim_option.cpp)
 target_link_libraries(onnxsim_bin onnxsim)
 set_target_properties(onnxsim_bin PROPERTIES OUTPUT_NAME onnxsim)
 if (EMSCRIPTEN)

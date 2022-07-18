@@ -1,29 +1,27 @@
 #include <fstream>
 
-#include "cxxopts.hpp"
 #include "onnx/common/file_utils.h"
 #include "onnxsim.h"
+#include "onnxsim_option.h"
 
 int main(int argc, char** argv) {
   // force env initialization to register opset
   InitEnv();
-  cxxopts::Options options("onnxsim", "Simplify your ONNX model");
-  options.add_options()("no-opt", "No optimization",
-                        cxxopts::value<bool>()->default_value("false"))(
-      "no-sim", "No simplification",
-      cxxopts::value<bool>()->default_value("false"));
-  auto result = options.parse(argc, argv);
-  const bool opt = !result["no-opt"].as<bool>();
-  const bool sim = !result["no-sim"].as<bool>();
+  OnnxsimOption option(argc, argv);
+  bool is_no_opt = option.Get<bool>("no-opt");
+  bool is_no_sim = option.Get<bool>("no-sim");
+  auto input_model_filename = option.Get<std::string>("input-model");
+  auto output_model_filename = option.Get<std::string>("output-model");
 
   onnx::ModelProto model;
-  onnx::LoadProtoFromPath(argv[1], model);
+  onnx::LoadProtoFromPath(input_model_filename, model);
 
-  model = Simplify(
-      model, opt ? std::make_optional<std::vector<std::string>>({}) : std::nullopt,
-      sim, true, true);
+  model = Simplify(model,
+                   is_no_opt ? std::make_optional<std::vector<std::string>>({})
+                             : std::nullopt,
+                   is_no_sim, true, true);
 
-  std::ofstream ofs(argv[2],
+  std::ofstream ofs(output_model_filename,
                     std::ios::out | std::ios::trunc | std::ios::binary);
   if (!model.SerializeToOstream(&ofs)) {
     throw std::invalid_argument("save model error");
