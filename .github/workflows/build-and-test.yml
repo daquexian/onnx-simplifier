@@ -20,8 +20,6 @@ jobs:
       # Skip arm test on x86, skip py3.6 test because no onnx binary wheel
       CIBW_TEST_SKIP: "*_arm64 *_universal2:arm64 cp36-*"
       CIBW_TEST_COMMAND: pytest {project}/tests/test_python_api.py
-      CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON"
-      CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON"
       # Only build on Python 3 and skip 32-bit builds
       CIBW_BUILD: cp3?-*
       # Skip x86 and musl
@@ -36,8 +34,17 @@ jobs:
       with:
         submodules: recursive
         fetch-depth: 0
-    - name: Build wheels
+    - name: Build onnxsim wheels
       uses: pypa/cibuildwheel@v2.7.0
+      env:
+        CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnxsim
+        CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnxsim
+    - name: Build onnx-simplifier wheels
+      uses: pypa/cibuildwheel@v2.7.0
+      env:
+        # set ONNXSIM_PKG_NAME to onnx-simplifier
+        CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
+        CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
     - uses: actions/upload-artifact@v3
       with:
         path: ./wheelhouse/*.whl
