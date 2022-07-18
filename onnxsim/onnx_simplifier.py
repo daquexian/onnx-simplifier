@@ -4,6 +4,7 @@ import copy
 import os
 import sys
 import re
+import tempfile
 from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
 from rich.text import Text
 from rich import print
@@ -158,17 +159,37 @@ def simplify(
 
     tensor_size_threshold = parse_size(tensor_size_threshold)
 
-    model_opt_bytes = C.simplify(
-        model.SerializeToString(),
-        skipped_optimizers,
-        True,
-        not skip_shape_inference,
-        tensor_size_threshold,
-    )
-    model_opt = onnx.load_from_string(model_opt_bytes)
-    check_ok = model_checking.compare(
-        model_opt, model, check_n, test_input_shapes, input_data, custom_lib
-    )
+    try:
+        model_bytes = model.SerializeToString()
+        model_opt_bytes, check_ok = C.simplify(
+            model_bytes,
+            skipped_optimizers,
+            True,
+            not skip_shape_inference,
+            tensor_size_threshold,
+        )
+        model_opt = onnx.load_from_string(model_opt_bytes)
+        check_ok = model_checking.compare(
+            model_opt, model, check_n, test_input_shapes, input_data, custom_lib
+        )
+    except ValueError:
+        # large models try to convert through a temporary file
+        with tempfile.TemporaryDirectory(dir='.') as tmpdirname:
+            onnx.save(
+                copy.deepcopy(model),
+                os.path.join(tmpdirname, 'model.onnx'),
+                save_as_external_data=True,
+            )
+            check_ok = C.simplify_path(
+                os.path.join(tmpdirname, 'model.onnx'),
+                os.path.join(tmpdirname, 'opt.onnx'),
+                skipped_optimizers,
+                True,
+                not skip_shape_inference,
+                tensor_size_threshold,
+            )
+            model_opt = onnx.load(os.path.join(tmpdirname, 'opt.onnx'))
+            # TODO model_checking doesn't support large models
     return model_opt, check_ok
 
 
@@ -399,7 +420,17 @@ def main():
         args.tensor_size_threshold,
     )
 
-    onnx.save(model_opt, args.output_model)
+    try:
+        onnx.save(model_opt, args.output_model)
+    except ValueError:
+        # large models
+        onnx.save(
+            copy.deepcopy(model_opt),
+            args.output_model,
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+            location=os.path.basename(args.output_model) + '.data',
+        )
 
     if check_ok:
         print("Finish! Here is the difference:")

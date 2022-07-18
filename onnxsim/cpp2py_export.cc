@@ -76,6 +76,17 @@ PYBIND11_MODULE(onnxsim_cpp2py_export, m) {
           result.SerializeToString(&out);
           return py::bytes(out);
         })
+      .def("simplify_path",
+        [](const std::string& in_path, const std::string& out_path,
+           std::optional<std::vector<std::string>> skip_optimizers,
+           bool constant_folding, bool shape_inference,
+           bool allow_large_tensor) -> bool {
+          // force env initialization to register opset
+          InitEnv();
+          SimplifyPath(in_path, out_path, skip_optimizers, constant_folding,
+                       shape_inference, allow_large_tensor);
+          return true;
+        })
       .def("_set_model_executor", [](std::shared_ptr<PyModelExecutor> executor) {
         ModelExecutor::set_instance(std::move(executor));
       });

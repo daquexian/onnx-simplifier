@@ -35,3 +35,8 @@ onnx::ModelProto Simplify(
     const onnx::ModelProto& model,
     std::optional<std::vector<std::string>> skip_optimizers,
     bool constant_folding, bool shape_inference, size_t tensor_size_threshold);
+
+void SimplifyPath(
+    const std::string& in_path, const std::string& out_path,
+    std::optional<std::vector<std::string>> skip_optimizers,
+    bool constant_folding, bool shape_inference, size_t tensor_size_threshold);
