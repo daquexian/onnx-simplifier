@@ -18,7 +18,7 @@ jobs:
       CIBW_BEFORE_TEST_MACOS: pip install torch torchvision
       CIBW_BEFORE_TEST_WINDOWS: pip install torch torchvision
       # Skip arm test on x86, skip py3.6 test because no onnx binary wheel
-      CIBW_TEST_SKIP: *_arm64 *_universal2:arm64 cp36-*
+      CIBW_TEST_SKIP: "*_arm64 *_universal2:arm64 cp36-*"
       CIBW_TEST_COMMAND: pytest {project}/tests/test_python_api.py
       CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON"
       CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON"
