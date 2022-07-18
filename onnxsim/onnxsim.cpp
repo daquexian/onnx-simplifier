@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <fstream>
-#include <chrono>
 #include <numeric>
 
 #ifndef NO_BUILTIN_ORT
@@ -447,14 +446,15 @@ onnx::ModelProto Simplify(
   return sim_model;
 }
 
-void SimplifyPath(
-    const std::string& in_path, const std::string& out_path,
-    std::optional<std::vector<std::string>> skip_optimizers,
-    bool constant_folding, bool shape_inference, size_t tensor_size_threshold) {
+void SimplifyPath(const std::string& in_path, const std::string& out_path,
+                  std::optional<std::vector<std::string>> skip_optimizers,
+                  bool constant_folding, bool shape_inference,
+                  size_t tensor_size_threshold) {
   onnx::ModelProto model;
   onnx::optimization::loadModel(&model, in_path, true);
 
-  model = Simplify(model, skip_optimizers, constant_folding, shape_inference, tensor_size_threshold);
+  model = Simplify(model, skip_optimizers, constant_folding, shape_inference,
+                   tensor_size_threshold);
 
   onnx::optimization::saveModel(&model, out_path, true, "");
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <optional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <onnx/onnx_pb.h>
@@ -36,7 +36,7 @@ onnx::ModelProto Simplify(
     std::optional<std::vector<std::string>> skip_optimizers,
     bool constant_folding, bool shape_inference, size_t tensor_size_threshold);
 
-void SimplifyPath(
-    const std::string& in_path, const std::string& out_path,
-    std::optional<std::vector<std::string>> skip_optimizers,
-    bool constant_folding, bool shape_inference, size_t tensor_size_threshold);
+void SimplifyPath(const std::string& in_path, const std::string& out_path,
+                  std::optional<std::vector<std::string>> skip_optimizers,
+                  bool constant_folding, bool shape_inference,
+                  size_t tensor_size_threshold);
