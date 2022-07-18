@@ -22,8 +22,8 @@ jobs:
       CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON"
       # Only build on Python 3 and skip 32-bit builds
       CIBW_BUILD: cp3?-*
-      # Skip python 3.6
-      CIBW_SKIP: "cp36-* *-win32 *-manylinux_i686 *-musllinux_*"
+      # Skip x86 and musl
+      CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux_*"
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -53,35 +53,27 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
         sed -i "s/0.0.0/${GITHUB_REF/refs\/tags\/v/}/" setup.py
-        sed -i "s/0.0.0/${GITHUB_REF/refs\/tags\/v/}/" .github/workflows/onnxsim-pkg/setup.py
 
     - name: Build sdist
-      run: pipx run build --sdist
-
-    - name: Install and test sdist
       run: |
-        # It's important to leave the project directory where a 'onnxsim' subdirectory exists
-        cd dist
-        python3 -m pip install *.tar.gz
-        python3 -m pip install onnxruntime
-        python3 -c "import onnxsim; print(dir(onnxsim))"
-
-    - name: Build onnxsim sdist
-      run: |
-        cp README.md LICENSE .github/workflows/onnxsim-pkg/
-        cd .github/workflows/onnxsim-pkg
+        export ONNXSIM_SDIST=ON
         export ONNXSIM_PKG_NAME=onnxsim
         pipx run build --sdist
         export ONNXSIM_PKG_NAME=onnx-simplifier
         pipx run build --sdist
 
-    # From documentation, "If multiple paths are provided as input,
-    # the least common ancestor of all the search paths will be
-    # used as the root directory of the artifact", which is not
-    # wanted. So upload twice
-    - uses: actions/upload-artifact@v3
-      with:
-        path: .github/workflows/onnxsim-pkg/dist/*.tar.gz
+    - name: Install and test sdist
+      run: |
+        # It's important to leave the project directory where a 'onnxsim' subdirectory exists
+        cd dist
+        python3 -m pip install onnxruntime
+        python3 -m pip install onnxsim-*.tar.gz
+        python3 -c "import onnxsim; print(dir(onnxsim))"
+        python3 -m pip uninstall onnxsim
+        python3 -m pip install onnx-simplifier-*.tar.gz
+        python3 -c "import onnxsim; print(dir(onnxsim))"
+        python3 -m pip uninstall onnx-simplifier
+
     - uses: actions/upload-artifact@v3
       with:
         path: dist/*.tar.gz

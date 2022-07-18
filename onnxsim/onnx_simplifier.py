@@ -13,7 +13,15 @@ import onnx  # type: ignore
 import onnx.helper  # type: ignore
 import onnx.shape_inference  # type: ignore
 import onnx.numpy_helper  # type: ignore
-import onnxruntime as rt  # type: ignore
+try:
+    import onnxruntime as rt  # type: ignore
+except ImportError:
+    command = [sys.executable, '-m', 'pip', 'install', '--user', 'onnxruntime']
+    print(Text(f"Installing onnxruntime by `{' '.join(command)}`, please wait for a moment..", style="bold magenta"))
+    import subprocess
+    subprocess.check_call(command)
+    import onnxruntime as rt
+
 
 import onnxsim.onnxsim_cpp2py_export as C
 from . import model_info
@@ -94,6 +102,8 @@ def simplify(
     include_subgraph: bool = False,
     unused_output: Optional[Sequence[str]] = None,
     tensor_size_threshold: str = MAX_TENSOR_SIZE_THRESHOLD,
+    *,
+    input_shapes=None,
 ) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
@@ -111,15 +121,25 @@ def simplify(
     :param custom_lib: onnxruntime custom ops's shared library
     :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
     :param unused_output: name of unused outputs that will be eliminated from the model
+    :param input_shapes: Deprecated. Please use `overwrite_input_shapes` and/or `test_input_shapes` instead.
     :return: A tuple (simplified model, success(True) or failed(False))
     """
     if dynamic_input_shape:
         print(
             Text(
-                "WARNING: The argument `dynamic_input_shape=True` is not needed any more, onnxsim can now support dynamic input shapes natively, please refer to the latest documentation.",
+                "WARNING: The argument `dynamic_input_shape=True` is not needed any more, onnxsim can now support dynamic input shapes natively, please refer to the latest documentation. An error will be raised in the future.",
                 style="bold red",
             )
         )
+    if input_shapes is not None:
+        print(
+            Text(
+                "WARNING: The argument `input_shapes` is deprecated. Please use `overwrite_input_shapes` and/or `test_input_shapes` instead. An error will be raised in the future.",
+                style="bold red",
+            )
+        )
+        overwrite_input_shapes = input_shapes
+        test_input_shapes = input_shapes
 
     if not perform_optimization:
         # None means skip all optimizers
