@@ -60,6 +60,10 @@ try:
 except (OSError, subprocess.CalledProcessError):
     git_version = None
 
+if os.getenv("ONNXSIM_SDIST") is not None:
+    version = '0.0.0'
+    git_version = None
+
 VersionInfo = namedtuple('VersionInfo', ['version', 'git_version'])(
     version=version,
     git_version=git_version
@@ -298,7 +302,7 @@ setup_requires.append('pytest-runner')
 ################################################################################
 
 setuptools.setup(
-    name="onnxsim-no-ort",
+    name=os.getenv("ONNXSIM_PKG_NAME", "onnxsim"),
     version=VersionInfo.version,
     description='Simplify your ONNX model',
     ext_modules=ext_modules,
