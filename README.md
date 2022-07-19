@@ -112,3 +112,5 @@ You can see more details of the API in [onnxsim/onnx_simplifier.py](onnxsim/onnx
 We created a Chinese QQ group for ONNX!
 
 ONNX QQ Group (Chinese): 1021964010, verification code: nndab. Welcome to join!
+
+For English users, I'm active on the [ONNX Slack](https://github.com/onnx/onnx#discuss). You can find and chat with me (daquexian) there.
