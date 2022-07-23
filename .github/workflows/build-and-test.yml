@@ -20,7 +20,7 @@ jobs:
       CIBW_BEFORE_TEST_WINDOWS: pip install torch torchvision
       # Skip arm test on x86, skip py3.6 test because no onnx binary wheel
       CIBW_TEST_SKIP: "*_arm64 *_universal2:arm64 cp36-*"
-      CIBW_TEST_COMMAND: pytest {project}/tests/test_python_api.py
+      CIBW_TEST_COMMAND: pytest -v {project}/tests/test_python_api.py
       # Only build on Python 3 and skip 32-bit builds
       CIBW_BUILD: cp3?-*
       # Skip x86 and musl
