@@ -5,6 +5,10 @@ cmake_minimum_required(VERSION 3.22)
 # Reference: https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html
 # It can be a normal variable if policy CMP0126 is set to NEW.
 set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE STRING "Minimum OS X deployment version")
+if ($ENV{CIBUILDWHEEL} STREQUAL "1")
+  # To build the universal2 package
+  set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "Targeted OS X architectures")
+endif()
 
 project(onnxsim CXX)
 
