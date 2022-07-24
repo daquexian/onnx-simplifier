@@ -14,9 +14,9 @@ jobs:
       CIBW_ENVIRONMENT_PASS_LINUX: ONNXSIM_CI
       CIBW_BEFORE_ALL_LINUX: WD=`pwd` && /opt/python/cp38-cp38/bin/python -m pip install cmake && cp /opt/_internal/cpython-3.8.13/bin/cmake /usr/local/bin/cmake && cmake --version && whereis cmake
       CIBW_BEFORE_ALL_MACOS: WD=`pwd` && pip install cmake
-      CIBW_TEST_REQUIRES_LINUX: pytest==5.4.3 flake8 onnxruntime 
-      CIBW_TEST_REQUIRES_MACOS: pytest==5.4.3 onnxruntime 
-      CIBW_TEST_REQUIRES_WINDOWS: pytest==5.4.3 onnxruntime 
+      CIBW_TEST_REQUIRES_LINUX: pytest flake8 onnxruntime 
+      CIBW_TEST_REQUIRES_MACOS: pytest onnxruntime 
+      CIBW_TEST_REQUIRES_WINDOWS: pytest onnxruntime 
       CIBW_BEFORE_TEST_LINUX: pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
       CIBW_BEFORE_TEST_MACOS: pip install torch torchvision
       CIBW_BEFORE_TEST_WINDOWS: pip install torch torchvision
