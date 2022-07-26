@@ -194,7 +194,7 @@ def simplify(
         )
     except ValueError:
         # large models try to convert through a temporary file
-        with tempfile.TemporaryDirectory(dir='.') as tmpdirname:
+        with tempfile.TemporaryDirectory() as tmpdirname:
             onnx.save(
                 copy.deepcopy(model),
                 os.path.join(tmpdirname, 'model.onnx'),
