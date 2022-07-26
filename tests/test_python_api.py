@@ -233,7 +233,7 @@ def test_remove_unused_initializer():
 
 
 @skip_in_ci()
-def test_simple_constant_folding():
+def test_model_larger_than_2gb():
     class SimpleModel(torch.nn.Module):
         def __init__(self):
             super(SimpleModel, self).__init__()
