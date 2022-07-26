@@ -51,8 +51,7 @@ struct PyModelExecutorTrampoline : public PyModelExecutor {
     PYBIND11_OVERRIDE_PURE_NAME(
         std::vector<py::bytes>, /* Return type */
         PyModelExecutor,        /* Parent class */
-        "Run",
-        _PyRun, /* Name of function in C++ (must match Python name) */
+        "Run", _PyRun, /* Name of function in C++ (must match Python name) */
         model_bytes, inputs_bytes /* Argument(s) */
     );
   }
@@ -76,12 +75,24 @@ PYBIND11_MODULE(onnxsim_cpp2py_export, m) {
           result.SerializeToString(&out);
           return py::bytes(out);
         })
-      .def("_set_model_executor", [](std::shared_ptr<PyModelExecutor> executor) {
-        ModelExecutor::set_instance(std::move(executor));
-      });
+      .def("simplify_path",
+           [](const std::string& in_path, const std::string& out_path,
+              std::optional<std::vector<std::string>> skip_optimizers,
+              bool constant_folding, bool shape_inference,
+              bool allow_large_tensor) -> bool {
+             // force env initialization to register opset
+             InitEnv();
+             SimplifyPath(in_path, out_path, skip_optimizers, constant_folding,
+                          shape_inference, allow_large_tensor);
+             return true;
+           })
+      .def("_set_model_executor",
+           [](std::shared_ptr<PyModelExecutor> executor) {
+             ModelExecutor::set_instance(std::move(executor));
+           });
 
-  py::class_<PyModelExecutor, PyModelExecutorTrampoline, std::shared_ptr<PyModelExecutor>>(
-      m, "ModelExecutor")
+  py::class_<PyModelExecutor, PyModelExecutorTrampoline,
+             std::shared_ptr<PyModelExecutor>>(m, "ModelExecutor")
       .def(py::init<>())
       .def("Run", &PyModelExecutor::_PyRun);
 }

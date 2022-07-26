@@ -14,6 +14,7 @@
 #endif
 #include "onnx/common/file_utils.h"
 #include "onnx/shape_inference/implementation.h"
+#include "onnxoptimizer/model_util.h"
 #include "onnxoptimizer/optimize.h"
 
 struct Config {
@@ -443,4 +444,17 @@ onnx::ModelProto Simplify(
   auto sim_model = OptAndShapeAndFold(model);
   Check(sim_model);
   return sim_model;
+}
+
+void SimplifyPath(const std::string& in_path, const std::string& out_path,
+                  std::optional<std::vector<std::string>> skip_optimizers,
+                  bool constant_folding, bool shape_inference,
+                  size_t tensor_size_threshold) {
+  onnx::ModelProto model;
+  onnx::optimization::loadModel(&model, in_path, true);
+
+  model = Simplify(model, skip_optimizers, constant_folding, shape_inference,
+                   tensor_size_threshold);
+
+  onnx::optimization::saveModel(&model, out_path, true, "");
 }

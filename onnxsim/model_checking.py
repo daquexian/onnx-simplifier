@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 from collections import OrderedDict
 
 import onnx
@@ -13,8 +13,8 @@ TensorShapes = Dict[Optional[str], TensorShape]
 
 
 def compare(
-    model_opt: onnx.ModelProto,
-    model_ori: onnx.ModelProto,
+    model_opt: Union[str, onnx.ModelProto],
+    model_ori: Union[str, onnx.ModelProto],
     n_times: int = 5,
     input_shapes: Optional[TensorShapes] = None,
     input_data: Optional[Tensors] = None,
@@ -97,9 +97,14 @@ def compare(
         )
         return input_names
 
-    def generate_rand_input(model, input_shapes: Optional[TensorShapes] = None):
+    def generate_rand_input(
+        model: Union[str, onnx.ModelProto],
+        input_shapes: Optional[TensorShapes] = None
+    ):
         if input_shapes is None:
             input_shapes = {}
+        if isinstance(model, str):
+            model = onnx.load(model, load_external_data=False)
         input_names = get_input_names(model)
         full_input_shapes = {ipt: get_shape(model, ipt) for ipt in input_names}
         assert None not in input_shapes
@@ -121,7 +126,9 @@ def compare(
         return inputs
 
     def forward(
-            model: onnx.ModelProto, inputs: Tensors, custom_lib: Optional[str]=None
+            model: Union[str, onnx.ModelProto],
+            inputs: Tensors,
+            custom_lib: Optional[str] = None
     ) -> Dict[str, np.ndarray]:
         sess_options = rt.SessionOptions()
         if custom_lib is not None:
@@ -131,8 +138,10 @@ def compare(
                 raise ValueError("No such file '{}'".format(custom_lib))
         sess_options.graph_optimization_level = rt.GraphOptimizationLevel(0)
         sess_options.log_severity_level = 3
+        if isinstance(model, onnx.ModelProto):
+            model = model.SerializeToString()
         sess = rt.InferenceSession(
-            model.SerializeToString(),
+            model,
             sess_options=sess_options,
             providers=["CPUExecutionProvider"],
         )
