@@ -1,6 +1,7 @@
 import io
 from typing import Any, Callable, Dict, Optional
 import os
+import tempfile
 
 import torch
 import onnx
@@ -22,12 +23,14 @@ def export_simplify_and_check_by_python_api(
         export_kwargs = {}
     if simplify_kwargs is None:
         simplify_kwargs = {}
-    with io.BytesIO() as f:
-        torch.onnx.export(m, input, f, **export_kwargs)
-        model = onnx.load_model_from_string(f.getvalue())
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        model_fn = os.path.join(tmpdirname, "tmp.onnx")
+        torch.onnx.export(m, input, model_fn, **export_kwargs)
+        model = onnx.load(model_fn)
         if not is_model_valid(model):
             raise AssertionError(f'model is invalid:\n{model}')
-        sim_model, check_ok = onnxsim.simplify(model, check_n=3, **simplify_kwargs)
+        # read the model from filesystem to support >2GB large model
+        sim_model, check_ok = onnxsim.simplify(model_fn, check_n=3, **simplify_kwargs)
         assert check_ok
         return sim_model
 
@@ -227,3 +230,29 @@ def test_remove_unused_initializer():
     )
     assert len(sim_model.graph.node) == 1
     assert len(sim_model.graph.initializer) == 1
+
+
+def test_simple_constant_folding():
+    class SimpleModel(torch.nn.Module):
+        def __init__(self):
+            super(SimpleModel, self).__init__()
+            # a parameter is 500MB
+            self.w1 = torch.nn.Parameter(torch.ones(125 * 1024 * 1024))
+            self.w2 = torch.nn.Parameter(torch.ones(125 * 1024 * 1024))
+            self.w3 = torch.nn.Parameter(torch.ones(125 * 1024 * 1024))
+            self.w4 = torch.nn.Parameter(torch.ones(125 * 1024 * 1024))
+            self.w5 = torch.nn.Parameter(torch.ones(125 * 1024 * 1024))
+
+        def forward(self, x):
+            return x + (self.w1 + self.w2 + self.w3 + self.w4 + self.w5)
+
+    net = SimpleModel()
+    dummy_input = torch.randn(125 * 1024 * 1024)
+    sim_model = export_simplify_and_check_by_python_api(
+        net,
+        dummy_input,
+        is_model_valid=lambda model: sum(node.op_type == 'Add' for node in model.graph.node) == 5,
+        export_kwargs={"do_constant_folding": False},
+    )
+    assert len(sim_model.graph.node) == 1
+    assert sim_model.graph.node[0].op_type == 'Add'
