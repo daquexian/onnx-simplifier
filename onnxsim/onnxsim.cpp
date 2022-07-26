@@ -27,6 +27,26 @@ Config config;
 
 std::shared_ptr<const ModelExecutor> ModelExecutor::instance_ = nullptr;
 
+bool IsOfficialOp(const std::string& domain, const std::string& op) {
+  if (domain != "ai.onnx" && domain != "ai.onnx.ml" && !domain.empty()) {
+    return false;
+  }
+  // these experimental ops were in onnx default domain but are no
+  // longer supported by onnx now.
+  static std::set<std::string> experimental_ops = {"ATen",
+                                                   "Affine",
+                                                   "ConstantFill",
+                                                   "Crop",
+                                                   "DynamicSlice",
+                                                   "GRUUnit",
+                                                   "GivenTensorFill",
+                                                   "ImageScaler",
+                                                   "ParametricSoftplus",
+                                                   "Scale",
+                                                   "ScaledTanh"};
+  return experimental_ops.find(op) == experimental_ops.end();
+}
+
 bool IsDeterministic(const std::string& domain, const std::string& op) {
   // Copy from onnxruntime/core/optimizer/utils.cc
   constexpr std::array kOnnxDomainNonDeterministicOps{
@@ -337,7 +357,8 @@ GetConstantNodes(const onnx::ModelProto& model) {
   // node is already topo sorted
   for (const auto& node : model.graph().node()) {
     // clang-format off
-    if (IsDeterministic(node.domain(), node.name()) &&
+    if (IsOfficialOp(node.domain(), node.op_type()) &&
+        IsDeterministic(node.domain(), node.op_type()) &&
         !IsQDQ(node.domain(), node.name()) &&
         !HasSubgraph(node) &&
         !ProduceLargeTensor(model, node, config.tensor_size_threshold) &&
