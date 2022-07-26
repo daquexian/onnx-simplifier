@@ -232,6 +232,7 @@ def test_remove_unused_initializer():
     assert len(sim_model.graph.initializer) == 1
 
 
+@skip_in_ci()
 def test_simple_constant_folding():
     class SimpleModel(torch.nn.Module):
         def __init__(self):
