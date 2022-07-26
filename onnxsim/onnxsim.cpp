@@ -382,7 +382,7 @@ onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
 }
 
 onnx::ModelProto Optimize(const onnx::ModelProto& model) {
-  return onnx::optimization::Optimize(model, config.optimizer_passes);
+  return onnx::optimization::OptimizeFixed(model, config.optimizer_passes);
 }
 
 template <typename T>

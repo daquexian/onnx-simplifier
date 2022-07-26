@@ -33,19 +33,14 @@ The input shape in this model is static, so what I expected is
 
 ![simple_reshape](imgs/simple_reshape.png)
 
-However, I got the following complicated model even after
-[polishing](https://github.com/onnx/onnx/blob/master/docs/PythonAPIOverview.md#polishing-the-model):
+However, I got the following complicated model instead:
 
 ![complicated_reshape](imgs/complicated_reshape.png)
-
-Moreover, there are also some operations performed on weights (like
-[this](https://github.com/JDAI-CV/DNNLibrary/issues/17#issuecomment-455934190)), which
-can all be eliminated by offline computation.
 
 ## Our solution
 
 ONNX Simplifier is presented to simplify the ONNX model. It infers the whole computation graph
-and then replaces the redundant operators with their constant outputs.
+and then replaces the redundant operators with their constant outputs (a.k.a. constant folding).
 
 ### Web version
 
@@ -64,7 +59,7 @@ Then
 onnxsim input_onnx_model output_onnx_model
 ```
 
-For more functions like skipping optimization and setting input shape manually (when input shape is dynamic itself), try the following command for help message
+For more advanced features, try the following command for help message
 
 ```
 onnxsim -h
@@ -112,3 +107,5 @@ You can see more details of the API in [onnxsim/onnx_simplifier.py](onnxsim/onnx
 We created a Chinese QQ group for ONNX!
 
 ONNX QQ Group (Chinese): 1021964010, verification code: nndab. Welcome to join!
+
+For English users, I'm active on the [ONNX Slack](https://github.com/onnx/onnx#discuss). You can find and chat with me (daquexian) there.
