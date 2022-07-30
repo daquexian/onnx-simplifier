@@ -181,7 +181,7 @@ def simplify(
 
     try:
         model_bytes = model.SerializeToString()
-        model_opt_bytes, check_ok = C.simplify(
+        model_opt_bytes = C.simplify(
             model_bytes,
             skipped_optimizers,
             True,
