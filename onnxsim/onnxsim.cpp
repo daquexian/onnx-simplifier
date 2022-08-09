@@ -359,7 +359,7 @@ GetConstantNodes(const onnx::ModelProto& model) {
     // clang-format off
     if (IsOfficialOp(node.domain(), node.op_type()) &&
         IsDeterministic(node.domain(), node.op_type()) &&
-        !IsQDQ(node.domain(), node.name()) &&
+        !IsQDQ(node.domain(), node.op_type()) &&
         !HasSubgraph(node) &&
         !ProduceLargeTensor(model, node, config.tensor_size_threshold) &&
         // clang-format on
