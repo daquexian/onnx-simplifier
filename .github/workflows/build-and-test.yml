@@ -36,6 +36,8 @@ jobs:
       with:
         submodules: recursive
         fetch-depth: 0
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
     - name: Build onnxsim wheels
       uses: pypa/cibuildwheel@v2.7.0
       env:
