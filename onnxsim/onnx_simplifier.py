@@ -388,7 +388,9 @@ def main():
         args.skip_optimization = None
     if args.skip_fuse_bn and args.skip_optimization is not None:
         args.skip_optimization.append("fuse_bn_into_conv")
-    
+
+    perform_optimization = False if args.skip_optimization is None else True
+
     def parse_shapes(shapes_arg):
         shapes = {}
         if shapes_arg is not None:
@@ -432,7 +434,7 @@ def main():
     model_opt, check_ok = simplify(
         model,
         args.check_n,
-        True,
+        perform_optimization,
         False,
         overwrite_input_shapes,
         test_input_shapes,
