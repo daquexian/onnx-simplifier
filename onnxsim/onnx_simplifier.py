@@ -96,6 +96,7 @@ def simplify(
     overwrite_input_shapes=None,
     test_input_shapes=None,
     skipped_optimizers: Optional[List[str]] = None,
+    skip_constant_folding=False,
     skip_shape_inference=False,
     input_data=None,
     dynamic_input_shape: bool = False,
@@ -116,6 +117,7 @@ def simplify(
     :param test_input_shapes: If the model has dynamic input shape, user must pass a fixed input shape
             for generating random inputs and checking equality.
     :param skipped_optimizers: Skip some specific onnx optimizers
+    :param skip_constant_folding: Skip constant folding
     :param skip_shape_inference: Skip shape inference (sometimes shape inference will crash)
     :param input_data: Feed custom input data for checking if needed
     :param dynamic_input_shape: Deprecated. Not needed anymore.
@@ -184,7 +186,7 @@ def simplify(
         model_opt_bytes = C.simplify(
             model_bytes,
             skipped_optimizers,
-            True,
+            not skip_constant_folding,
             not skip_shape_inference,
             tensor_size_threshold,
         )
@@ -204,7 +206,7 @@ def simplify(
                 os.path.join(tmpdirname, 'model.onnx'),
                 os.path.join(tmpdirname, 'opt.onnx'),
                 skipped_optimizers,
-                True,
+                not skip_constant_folding,
                 not skip_shape_inference,
                 tensor_size_threshold,
             )
@@ -273,7 +275,7 @@ def main():
         type=str,
         nargs="*",
     )
-    parser.add_argument("--skip-constant-folding", action="store_true")
+    parser.add_argument("--skip-constant-folding", help="Skip constant folding", action="store_true")
     parser.add_argument(
         "--input-shape",
         help="This argument has been renamed to --overwrite-input-shape, please refer to it",
@@ -386,7 +388,9 @@ def main():
         args.skip_optimization = None
     if args.skip_fuse_bn and args.skip_optimization is not None:
         args.skip_optimization.append("fuse_bn_into_conv")
-    
+
+    perform_optimization = False if args.skip_optimization is None else True
+
     def parse_shapes(shapes_arg):
         shapes = {}
         if shapes_arg is not None:
@@ -430,11 +434,12 @@ def main():
     model_opt, check_ok = simplify(
         model,
         args.check_n,
-        True,
+        perform_optimization,
         False,
         overwrite_input_shapes,
         test_input_shapes,
         args.skip_optimization,
+        args.skip_constant_folding,
         args.skip_shape_inference,
         input_tensors,
         False,
