@@ -44,7 +44,8 @@ try:
     if version[0] == 'v':
         version = version[1:]
 except (OSError, subprocess.CalledProcessError):
-    version = "unknown"
+    with open(os.path.join(TOP_DIR, 'VERSION')) as ver_file:
+        version = ver_file.read().strip()
 
 try:
     git_version = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
@@ -52,7 +53,7 @@ try:
 except (OSError, subprocess.CalledProcessError):
     git_version = None
 
-if os.getenv("ONNXSIM_SDIST") is not None:
+if os.getenv('ONNXSIM_SDIST') is not None:
     version = '0.0.0'
     git_version = None
 
