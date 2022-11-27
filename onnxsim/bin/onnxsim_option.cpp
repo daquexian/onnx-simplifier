@@ -11,6 +11,7 @@ void OnnxsimOption::Parse(int argc, char** argv) {
   ("o,output-model",      "Output onnx model filename. This argument is required.",  cxxopts::value<std::string>())
   ("no-opt",              "No optimization",             cxxopts::value<bool>()->default_value("false"))
   ("no-sim",              "No simplification",           cxxopts::value<bool>()->default_value("false"))
+  ("no-shape-inference",  "No shape inference",          cxxopts::value<bool>()->default_value("false"))
   ;
   // clang-format on
 

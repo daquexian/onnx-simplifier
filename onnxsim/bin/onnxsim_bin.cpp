@@ -10,6 +10,7 @@ int main(int argc, char** argv) {
   OnnxsimOption option(argc, argv);
   bool no_opt = option.Get<bool>("no-opt");
   bool no_sim = option.Get<bool>("no-sim");
+  bool no_shape_inference = option.Get<bool>("no-shape-inference");
   auto input_model_filename = option.Get<std::string>("input-model");
   auto output_model_filename = option.Get<std::string>("output-model");
 
@@ -19,7 +20,7 @@ int main(int argc, char** argv) {
   model = Simplify(
       model,
       no_opt ? std::nullopt : std::make_optional<std::vector<std::string>>({}),
-      !no_sim, true, SIZE_MAX);
+      !no_sim, !no_shape_inference, SIZE_MAX);
 
   std::ofstream ofs(output_model_filename,
                     std::ios::out | std::ios::trunc | std::ios::binary);
