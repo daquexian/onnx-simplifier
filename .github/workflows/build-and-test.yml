@@ -94,23 +94,24 @@ jobs:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v3
-        with:
-          # unpacks default artifact into dist/
-          # if `name: artifact` is omitted, the action will create extra parent dir
-          name: artifact
-          path: dist
-      - name: Publish distribution 📦 to Test PyPI
-        uses: pypa/gh-action-pypi-publish@master
-        with:
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
-          skip_existing: true
-      - name: Publish distribution 📦 to PyPI
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: pypa/gh-action-pypi-publish@master
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+    - uses: actions/download-artifact@v3
+      with:
+        # unpacks default artifact into dist/
+        # if `name: artifact` is omitted, the action will create extra parent dir
+        name: artifact
+        path: dist
+    - name: Publish distribution 📦 to Test PyPI
+      if: ${{ github.ref == 'refs/heads/master' }}
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        repository_url: https://test.pypi.org/legacy/
+        skip_existing: true
+    - name: Publish distribution 📦 to PyPI
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
 
   build_wasm:
     name: Build WebAssembly
@@ -127,6 +128,27 @@ jobs:
     - name: Build
       run: ./build_wasm.sh
 
+    - uses: actions/upload-artifact@v3
+      with:
+        name: wasm
+        path: |
+          build-wasm-node-OFF/onnxsim.js
+          build-wasm-node-OFF/onnxsim.wasm
+
+    - name: Upload to convertmodel.com
+      run: |
+        wget https://gosspublic.alicdn.com/ossutil/1.7.14/ossutil64
+        chmod 755 ossutil64
+        echo "[Credentials]" >> ~/.ossutilconfig
+        echo "language=EN" >> ~/.ossutilconfig
+        echo "endpoint=oss-cn-beijing.aliyuncs.com" >> ~/.ossutilconfig
+        echo "accessKeyID=${{ secrets.OSS_ACCESS_KEY }}" >> ~/.ossutilconfig
+        echo "accessKeySecret=${{ secrets.OSS_SECRET_KEY }}" >> ~/.ossutilconfig
+        
+        gzip -c -9 build-wasm-node-OFF/onnxsim.wasm > onnxsim_gz.wasm
+        ossutil64 --config-file ~/.ossutilconfig cp -u onnxsim_gz.wasm  oss://converter-web/onnxsim_test.wasm --meta=Content-Type:application/wasm#Content-Encoding:gzip
+        ossutil64 --config-file ~/.ossutilconfig cp -u build-wasm-node-OFF/onnxsim.js oss://converter-web/onnxsim_test.js
+
   build_wasm_with_noderawfs:
     name: Build WebAssembly with NODERAWFS
     runs-on: ubuntu-latest
@@ -141,6 +163,13 @@ jobs:
 
     - name: Build
       run: ./build_wasm.sh ON
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: wasm-with-noderawfs
+        path: |
+          build-wasm-node-ON/onnxsim.js
+          build-wasm-node-ON/onnxsim.wasm
 
   build_native:
     name: Build Native
@@ -157,3 +186,10 @@ jobs:
         cd build-native
         cmake -GNinja ..
         ninja onnxsim_bin
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: wasm-with-noderawfs
+        path: |
+          build-native/onnxsim
+
