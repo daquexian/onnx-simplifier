@@ -48,8 +48,8 @@ jobs:
         CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
         CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
     - uses: actions/upload-artifact@v3
-      name: python-dist
       with:
+        name: python-dist
         path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -87,8 +87,8 @@ jobs:
         python3 -m pip uninstall -y onnx-simplifier
 
     - uses: actions/upload-artifact@v3
-      name: python-dist
       with:
+        name: python-dist
         path: dist/*.tar.gz
 
   upload_pypi:
