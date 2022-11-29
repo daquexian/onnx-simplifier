@@ -32,7 +32,7 @@ jobs:
       matrix:
         os: [ubuntu-20.04, windows-2019, macos-11]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
         fetch-depth: 0
@@ -55,7 +55,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
         fetch-depth: 0
@@ -117,7 +117,7 @@ jobs:
     name: Build WebAssembly
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
     - uses: mymindstorm/setup-emsdk@v11
@@ -136,6 +136,7 @@ jobs:
           build-wasm-node-OFF/onnxsim.wasm
 
     - name: Upload to convertmodel.com
+      if: ${{ github.ref == 'refs/heads/master' }}
       run: |
         wget https://gosspublic.alicdn.com/ossutil/1.7.14/ossutil64
         chmod 755 ossutil64
@@ -146,14 +147,14 @@ jobs:
         echo "accessKeySecret=${{ secrets.OSS_SECRET_KEY }}" >> ~/.ossutilconfig
         
         gzip -c -9 build-wasm-node-OFF/onnxsim.wasm > onnxsim_gz.wasm
-        ./ossutil64 --config-file ~/.ossutilconfig cp -u onnxsim_gz.wasm  oss://converter-web/onnxsim_test.wasm --meta=Content-Type:application/wasm#Content-Encoding:gzip
-        ./ossutil64 --config-file ~/.ossutilconfig cp -u build-wasm-node-OFF/onnxsim.js oss://converter-web/onnxsim_test.js
+        ./ossutil64 --config-file ~/.ossutilconfig cp -u onnxsim_gz.wasm oss://converter-web/ --meta=Content-Type:application/wasm#Content-Encoding:gzip
+        ./ossutil64 --config-file ~/.ossutilconfig cp -u build-wasm-node-OFF/onnxsim.js oss://converter-web/
 
   build_wasm_with_noderawfs:
     name: Build WebAssembly with NODERAWFS
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
     - uses: mymindstorm/setup-emsdk@v11
@@ -175,7 +176,7 @@ jobs:
     name: Build Native
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
     - uses: seanmiddleditch/gha-setup-ninja@v3
