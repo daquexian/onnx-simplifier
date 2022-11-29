@@ -149,7 +149,7 @@ jobs:
         echo "accessKeySecret=${{ secrets.OSS_SECRET_KEY }}" >> ~/.ossutilconfig
         
         gzip -c -9 build-wasm-node-OFF/onnxsim.wasm > onnxsim_gz.wasm
-        ./ossutil64 --config-file ~/.ossutilconfig cp -u onnxsim_gz.wasm oss://converter-web/ --meta=Content-Type:application/wasm#Content-Encoding:gzip
+        ./ossutil64 --config-file ~/.ossutilconfig cp -u onnxsim_gz.wasm oss://converter-web/onnxsim.wasm --meta=Content-Type:application/wasm#Content-Encoding:gzip
         ./ossutil64 --config-file ~/.ossutilconfig cp -u build-wasm-node-OFF/onnxsim.js oss://converter-web/
 
   build_wasm_with_noderawfs:
