@@ -48,6 +48,7 @@ jobs:
         CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
         CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
     - uses: actions/upload-artifact@v3
+      name: python-dist
       with:
         path: ./wheelhouse/*.whl
 
@@ -86,6 +87,7 @@ jobs:
         python3 -m pip uninstall -y onnx-simplifier
 
     - uses: actions/upload-artifact@v3
+      name: python-dist
       with:
         path: dist/*.tar.gz
 
@@ -96,9 +98,9 @@ jobs:
     steps:
     - uses: actions/download-artifact@v3
       with:
-        # unpacks default artifact into dist/
-        # if `name: artifact` is omitted, the action will create extra parent dir
-        name: artifact
+        # unpacks python-dist artifact into dist/
+        # if `name: python-dist` is omitted, the action will create extra parent dir
+        name: python-dist
         path: dist
     - name: Publish distribution 📦 to Test PyPI
       if: ${{ github.ref == 'refs/heads/master' }}
@@ -190,7 +192,7 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
-        name: wasm-with-noderawfs
+        name: native
         path: |
           build-native/onnxsim
 
