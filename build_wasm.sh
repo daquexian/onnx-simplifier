@@ -15,5 +15,5 @@ popd
 
 mkdir -p build-wasm-node-$WITH_NODE_RAW_FS
 cd build-wasm-node-$WITH_NODE_RAW_FS
-emcmake cmake -DONNX_CUSTOM_PROTOC_EXECUTABLE=$PROTOC -DONNXSIM_WASM_NODE=$WITH_NODE_RAW_FS -GNinja -DCMAKE_BUILD_TYPE=MinSizeRel ..
+emcmake cmake -DONNX_CUSTOM_PROTOC_EXECUTABLE=$PROTOC -DONNXSIM_WASM_NODE=$WITH_NODE_RAW_FS -GNinja -DCMAKE_BUILD_TYPE=Release ..
 ninja onnxsim_bin
