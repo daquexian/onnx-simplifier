@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -uex
 
+# Check if emcmake is available
+command -v emcmake > /dev/null
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 WITH_NODE_RAW_FS=${1:-OFF}
 
