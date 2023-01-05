@@ -24,7 +24,7 @@ jobs:
       CIBW_TEST_SKIP: "*_arm64 *_universal2:arm64 cp36-*"
       CIBW_TEST_COMMAND: pytest -v {project}/tests/test_python_api.py
       # Only build on Python 3 and skip 32-bit or musl builds
-      CIBW_BUILD: "cp3?-* cp310-*"
+      CIBW_BUILD: "cp3?-* cp310-* cp311-*"
       CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux_*"
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
