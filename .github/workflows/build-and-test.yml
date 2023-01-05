@@ -37,12 +37,12 @@ jobs:
         submodules: recursive
         fetch-depth: 0
     - name: Build onnxsim wheels
-      uses: pypa/cibuildwheel@v2.7.0
+      uses: pypa/cibuildwheel@v2.11.4
       env:
         CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnxsim
         CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnxsim
     - name: Build onnx-simplifier wheels
-      uses: pypa/cibuildwheel@v2.7.0
+      uses: pypa/cibuildwheel@v2.11.4
       env:
         # set ONNXSIM_PKG_NAME to onnx-simplifier
         CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
