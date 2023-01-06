@@ -291,15 +291,15 @@ setuptools.setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
         'Topic :: Scientific/Engineering',
         'Topic :: Software Development'
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     entry_points={
         'console_scripts': [
             'onnxsim=onnxsim:main',
