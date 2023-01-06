@@ -155,6 +155,9 @@ def test_torchvision_keypointrcnn_fpn():
     )
 
 
+# shufflenet causes segfault in CI (perhaps because of memory limit)
+# but works locally
+@skip_in_ci()
 def test_torchvision_shufflenet_v2():
     model = tv.models.shufflenet_v2_x1_0(pretrained=False)
     x = torch.rand(1, 3, 224, 224)
