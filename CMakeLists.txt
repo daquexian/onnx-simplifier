@@ -31,6 +31,9 @@ add_compile_options(
   $<$<COMPILE_LANGUAGE:CXX>:$<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>>
   $<$<COMPILE_LANGUAGE:CXX>:$<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>>
   $<$<COMPILE_LANGUAGE:CUDA>:$<$<CUDA_COMPILER_ID:Clang>:-fcolor-diagnostics>>)
+if (WIN32)
+  add_compile_definitions(NOMINMAX)
+endif()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if (ONNXSIM_BUILTIN_ORT)
