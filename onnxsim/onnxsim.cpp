@@ -418,18 +418,24 @@ std::function<T(const T&)> FixedPointFn(const std::function<T(const T&)>& f1,
     T& y2 = tmp2;
     while (_max_iters-- > 0) {
       if (google::protobuf::util::MessageDifferencer::Equals(y1, y2)) {
-        *converged = true;
+        if (converged) {
+          *converged = true;
+        }
         return y2;
       }
       y1 = f1(y2);
       if (google::protobuf::util::MessageDifferencer::Equals(y1, y2)) {
-        *converged = true;
+        if (converged) {
+          *converged = true;
+        }
         return y1;
       }
       y2 = f2(y1);
     }
 
-    *converged = false;
+    if (converged) {
+      *converged = false;
+    }
     return y2;
   };
 }
@@ -438,8 +444,7 @@ template <typename T>
 std::function<T(const T&)> FixedPointFn(const std::function<T(const T&)>& f1,
                                         const std::function<T(const T&)>& f2,
                                         size_t max_iters) {
-  bool unused = false;
-  return FixedPointFn(f1, f2, max_iters, &unused);
+  return FixedPointFn(f1, f2, max_iters, nullptr);
 }
 
 onnx::ModelProto Identity(const onnx::ModelProto& model) { return model; }
