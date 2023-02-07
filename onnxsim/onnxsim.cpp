@@ -409,8 +409,8 @@ onnx::ModelProto Optimize(const onnx::ModelProto& model) {
 template <typename T>
 std::function<T(const T&)> FixedPointFn(const std::function<T(const T&)>& f1,
                                         const std::function<T(const T&)>& f2,
-                                        size_t max_iters) {
-  return [f1, f2, max_iters](const T& x) {
+                                        size_t max_iters, bool* converged) {
+  return [f1, f2, max_iters, converged](const T& x) {
     size_t _max_iters = max_iters;
     T tmp1 = f1(x);
     T tmp2 = f2(x);
@@ -418,16 +418,28 @@ std::function<T(const T&)> FixedPointFn(const std::function<T(const T&)>& f1,
     T& y2 = tmp2;
     while (_max_iters-- > 0) {
       if (google::protobuf::util::MessageDifferencer::Equals(y1, y2)) {
+        *converged = true;
         return y2;
       }
       y1 = f1(y2);
       if (google::protobuf::util::MessageDifferencer::Equals(y1, y2)) {
+        *converged = true;
         return y1;
       }
       y2 = f2(y1);
     }
+
+    *converged = false;
     return y2;
   };
+}
+
+template <typename T>
+std::function<T(const T&)> FixedPointFn(const std::function<T(const T&)>& f1,
+                                        const std::function<T(const T&)>& f2,
+                                        size_t max_iters) {
+  bool unused = false;
+  return FixedPointFn(f1, f2, max_iters, &unused);
 }
 
 onnx::ModelProto Identity(const onnx::ModelProto& model) { return model; }
@@ -438,6 +450,8 @@ onnx::ModelProto Simplify(
     const onnx::ModelProto& model,
     std::optional<std::vector<std::string>> skip_optimizers,
     bool constant_folding, bool shape_inference, size_t tensor_size_threshold) {
+  Check(model);
+
   config.tensor_size_threshold = tensor_size_threshold;
   config.optimizer_passes.clear();
   // skip_optimizers == nullopt means skiping all optimizers, so
@@ -457,13 +471,26 @@ onnx::ModelProto Simplify(
   auto FoldConstant = constant_folding ? _FoldConstant : Identity;
   auto InferShapes = shape_inference ? _InferShapes : Identity;
 
-  Check(model);
-  auto OptAndShape =
-      FixedPointFn(std::function{InferShapes}, std::function{Optimize}, 15);
+  int fixed_point_iters =
+      std::getenv("ONNXSIM_FIXED_POINT_ITERS")
+          ? std::atoi(std::getenv("ONNXSIM_FIXED_POINT_ITERS"))
+          : 50;
+
+  auto OptAndShape = FixedPointFn(std::function{InferShapes},
+                                  std::function{Optimize}, fixed_point_iters);
+  bool converged = false;
   auto OptAndShapeAndFold =
-      FixedPointFn(std::function{OptAndShape}, std::function{FoldConstant}, 15);
+      FixedPointFn(std::function{OptAndShape}, std::function{FoldConstant},
+                   fixed_point_iters, &converged);
   auto sim_model = OptAndShapeAndFold(model);
   Check(sim_model);
+  if (!converged) {
+    std::cout << "WARNING: the simplification stopped because of timeout. "
+                 "Please set environment variable `ONNXSIM_FIXED_POINT_ITERS` "
+                 "to a number higher than "
+              << fixed_point_iters << "if you want further simplification."
+              << std::endl;
+  }
   return sim_model;
 }
 
