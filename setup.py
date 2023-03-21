@@ -15,6 +15,7 @@ import sys
 import platform
 from textwrap import dedent
 import multiprocessing
+import re
 
 
 TOP_DIR = os.path.realpath(os.path.dirname(__file__))
