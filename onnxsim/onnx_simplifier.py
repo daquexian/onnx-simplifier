@@ -1,16 +1,17 @@
 import argparse
-from collections import OrderedDict
+
 import copy
 import os
 import sys
 import re
 import tempfile
-from typing import Callable, List, Dict, Union, Optional, Tuple, Sequence, TypeVar
+from typing import List, Dict, Union, Optional, Tuple, Sequence
 from rich.text import Text
 from rich import print
 import numpy as np
 
 import onnx  # type: ignore
+import onnx.checker  # type: ignore
 import onnx.helper  # type: ignore
 import onnx.shape_inference  # type: ignore
 import onnx.numpy_helper  # type: ignore
@@ -304,6 +305,11 @@ def main():
         "--skip-shape-inference", help="Skip shape inference", action="store_true"
     )
     parser.add_argument(
+        "--enable-onnxruntime-optimization",
+        help="Enable ONNX Runtime's ORT_ENABLE_BASIC level optimization.",
+        action="store_true",
+    )
+    parser.add_argument(
         "--dynamic-input-shape",
         help="Deprecated. Not needed any more.",
         action="store_true",
@@ -408,7 +414,19 @@ def main():
     test_input_shapes = parse_shapes(args.test_input_shape)
     overwrite_input_shapes = parse_shapes(args.overwrite_input_shape)
 
-    model = onnx.load(args.input_model)
+    if args.enable_onnxruntime_optimization:
+
+        tmp_file = tempfile.NamedTemporaryFile()
+        sess_options = rt.SessionOptions()
+        # Set graph optimization level
+        sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_BASIC
+        # To enable model serialization after graph optimization
+        sess_options.optimized_model_filepath = tmp_file.name
+        _ = rt.InferenceSession(args.input_model, sess_options)
+
+        model = onnx.load(tmp_file.name)
+    else:
+        model = onnx.load(args.input_model)
 
     if args.tensor_size_threshold == MAX_TENSOR_SIZE_THRESHOLD:
         for node in model.graph.node:
