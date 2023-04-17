@@ -109,12 +109,15 @@ def compare(
         full_input_shapes = {ipt: get_shape(model, ipt) for ipt in input_names}
         assert None not in input_shapes
         full_input_shapes.update(input_shapes)  # type: ignore
-        for key in full_input_shapes:
-            if np.prod(full_input_shapes[key]) <= 0:
+        for name, shape in full_input_shapes.items():
+            if any([dim <= 0 for dim in shape[1:]]):
                 raise RuntimeError(
                     'The shape of input "{}" has dynamic size, '
                     "please set an input shape manually with --test-input-shape".format(key)
                 )
+            if len(shape) > 0 and shape[0] <= 0:
+                print(f'shape[0] of input "{name}" is dynamic, we assume it presents batch size and set it as 1 when testing. If it is not wanted, please set the it manually by --test-input-shape (see `onnxsim -h` for the details).')
+                shape[0] = 1
 
         inputs = {
             ipt: np.array(
