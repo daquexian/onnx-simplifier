@@ -113,7 +113,7 @@ def compare(
             if any([dim <= 0 for dim in shape[1:]]):
                 raise RuntimeError(
                     'The shape of input "{}" has dynamic size, '
-                    "please set an input shape manually with --test-input-shape".format(key)
+                    "please set an input shape manually with --test-input-shape".format(name)
                 )
             if len(shape) > 0 and shape[0] <= 0:
                 print(f'shape[0] of input "{name}" is dynamic, we assume it presents batch size and set it as 1 when testing. If it is not wanted, please set the it manually by --test-input-shape (see `onnxsim -h` for the details).')
