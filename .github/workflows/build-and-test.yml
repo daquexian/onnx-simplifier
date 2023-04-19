@@ -41,6 +41,8 @@ jobs:
       env:
         CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnxsim
         CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnxsim
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
     - name: Build onnx-simplifier wheels
       uses: pypa/cibuildwheel@v2.11.4
       env:
