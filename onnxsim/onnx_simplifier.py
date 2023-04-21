@@ -28,6 +28,7 @@ except ImportError:
 import onnxsim.onnxsim_cpp2py_export as C
 from . import model_info
 from . import model_checking
+from . import version
 
 
 TensorShape = List[int]
@@ -342,6 +343,7 @@ def main():
         nargs="?",
         dest="tensor_size_threshold",
     )
+    parser.add_argument('-v', '--version', action='version', version='onnxsim ' + version.version)
 
     args = parser.parse_args()
 
