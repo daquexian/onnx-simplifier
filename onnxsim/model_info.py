@@ -36,6 +36,7 @@ class ModelInfo:
         # TODO: include ops in subgraph
         for node in model.graph.node:
             self.op_nums[node.op_type] += 1
+        self.op_nums["Constant"] += len(model.graph.initializer)
         self.model_size = model.ByteSize()
 
 
