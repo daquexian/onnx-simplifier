@@ -18,7 +18,7 @@ import onnx.numpy_helper  # type: ignore
 try:
     import onnxruntime as rt  # type: ignore
 except ImportError:
-    command = [sys.executable, '-m', 'pip', 'install', '--user', 'onnxruntime']
+    command = [sys.executable, '-m', 'pip', 'install', 'onnxruntime']
     print(Text(f"Installing onnxruntime by `{' '.join(command)}`, please wait for a moment..", style="bold magenta"))
     import subprocess
     subprocess.check_call(command)
