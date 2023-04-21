@@ -338,12 +338,13 @@ bool ProduceLargeTensor(const onnx::ModelProto& model,
       for (const auto& dim : value_info.type().tensor_type().shape().dim()) {
         size *= dim.dim_value();
       }
-      if (size > threshold) {
-        return true;
+      if (size <= threshold) {
+        return false;
       }
     }
   }
-  return false;
+  // If the output is not in value_info, we assume it is large.
+  return true;
 }
 
 std::pair<std::vector<onnx::NodeProto>, std::vector<onnx::NodeProto>>

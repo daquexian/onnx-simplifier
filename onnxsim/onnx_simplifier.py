@@ -174,7 +174,6 @@ def simplify(
     def parse_size(size: str) -> int:
         units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
         size = size.upper()
-        #print("parsing size ", size)
         if not re.match(r' ', size):
             size = re.sub(r'([KMGT]?B)', r' \1', size)
         number, unit = [string.strip() for string in size.split()]
@@ -338,7 +337,7 @@ def main():
         "--no-large-tensor",
         help="Some ops like Tile and ConstantOfShape can produce large tensor and make the model size much larger. Specifying this flag to skip folding these ops, with loss of some optimization chances. It can be followed with a threshold, for example, --no-large-tensor 1M or --no-large-tensor 100KB.",
         type=str,
-        const='0B',
+        const='1KB',
         default=MAX_TENSOR_SIZE_THRESHOLD,
         nargs="?",
         dest="tensor_size_threshold",
