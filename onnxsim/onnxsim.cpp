@@ -249,6 +249,10 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
         input_names.end()) {
       continue;
     }
+    // skip "" which represents the unset optional input
+    if (input.empty()) {
+      continue;
+    }
     input_names.push_back(input);
     auto in_tp = FindInitializerByName(model, input);
     input_tps.push_back(in_tp);
@@ -260,6 +264,10 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
   }
   *op_model.mutable_graph()->add_node() = op;
   for (const auto& x : input_names) {
+    // skip "" which represents the unset optional input
+    if (x.empty()) {
+      continue;
+    }
     *op_model.mutable_graph()->add_input() = FindValueInfoProtoByName(model, x);
   }
   for (const auto& x : op.output()) {
@@ -349,7 +357,9 @@ bool ProduceLargeTensor(const onnx::ModelProto& model,
 
 std::pair<std::vector<onnx::NodeProto>, std::vector<onnx::NodeProto>>
 GetConstantNodes(const onnx::ModelProto& model) {
-  std::vector<std::string> const_names;
+  // tensor with empty name("") represents the empty value of an optional input
+  // so "" should be treated as a name of a constant tensor.
+  std::vector<std::string> const_names{""};
   std::vector<onnx::NodeProto> const_nodes;
   std::vector<onnx::NodeProto> non_const_nodes;
   std::transform(

@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Optional
 import os
 import tempfile
 
+import numpy as np
 import torch
 import onnx
 import onnxsim
@@ -265,3 +266,38 @@ def test_model_larger_than_2gb():
     assert len(sim_model.graph.node) == 1
     assert sim_model.graph.node[0].op_type == "Add"
 
+
+def test_unset_optional_input():
+    fmap = []
+    nodes = [] 
+    initializers = []
+
+    fmap.append(onnx.helper.make_tensor_value_info('y', onnx.TensorProto.FLOAT, shape=(1,3,4,4)))
+
+    X = np.random.rand(1,3,2,2).astype(np.float32)
+    initializers.append(onnx.helper.make_tensor('X', onnx.TensorProto.FLOAT, X.shape, X.copy().tobytes(), raw=True))
+    sizes = np.asarray([1,3,4,4]).astype(np.int64)
+    initializers.append(onnx.helper.make_tensor('sizes', onnx.TensorProto.INT64, sizes.shape, sizes.copy().tobytes(), raw=True))
+
+    nodes.append(onnx.helper.make_node(
+      'Resize',
+      inputs=['X', '', '', 'sizes'],
+      outputs=['y'],
+      mode='linear'))
+
+    graph_def = onnx.helper.make_graph(
+      nodes,
+      'test_unset_optional_input',
+      [],
+      [fmap[-1]],
+      value_info=fmap,
+      initializer=initializers
+      )
+    
+    model = onnx.helper.make_model(graph_def)
+    sim_model, check_ok = onnxsim.simplify(model, check_n=3)
+    assert check_ok
+    assert len(model.graph.node) == 1
+    assert len(model.graph.initializer) == 2
+    assert len(sim_model.graph.node) == 0
+    assert len(sim_model.graph.initializer) == 1
