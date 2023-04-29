@@ -335,7 +335,7 @@ size_t size_of_dtype(onnx::TensorProto::DataType dtype) {
 
 bool ProduceLargeTensor(const onnx::ModelProto& model,
                         const onnx::NodeProto& node, size_t threshold) {
-  std::set<std::string> large_tensor_ops{"Tile", "ConstantOfShape"};
+  std::set<std::string> large_tensor_ops{"Tile", "ConstantOfShape", "Expand"};
   if (large_tensor_ops.find(node.op_type()) == large_tensor_ops.end()) {
     return false;
   }
@@ -352,6 +352,9 @@ bool ProduceLargeTensor(const onnx::ModelProto& model,
     }
   }
   // If the output is not in value_info, we assume it is large.
+  // There is a possibility that value_info is presented by the shape inference
+  // later and `ProduceLargeTensor` is called again and returns false at that
+  // time.
   return true;
 }
 
