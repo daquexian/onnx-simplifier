@@ -58,6 +58,15 @@ def remove_unused_output(
     return model
 
 
+def remove_initializer_from_input(model: onnx.ModelProto) -> onnx.ModelProto:
+    initializer_names = [x.name for x in model.graph.initializer]
+    for graph_input in copy.deepcopy(model.graph.input):
+        if graph_input.name in initializer_names:
+            model.graph.input.remove(graph_input)
+    onnx.checker.check_model(model)
+    return model
+
+
 def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: Optional[TensorShapesWithOptionalKey]) -> Optional[TensorShapes]:
     if input_shapes is None:
         return None
@@ -106,6 +115,7 @@ def simplify(
     include_subgraph: bool = False,
     unused_output: Optional[Sequence[str]] = None,
     tensor_size_threshold: str = MAX_TENSOR_SIZE_THRESHOLD,
+    mutable_initializer: bool = False,
     *,
     input_shapes=None,
 ) -> Tuple[onnx.ModelProto, bool]:
@@ -170,6 +180,8 @@ def simplify(
                     dim.dim_value = input_shape[i]
     if unused_output is not None:
         model = remove_unused_output(model, unused_output)
+    if not mutable_initializer:
+        model = remove_initializer_from_input(model)
 
     # https://stackoverflow.com/a/60708339
     def parse_size(size: str) -> int:
@@ -336,13 +348,18 @@ def main():
     )
     parser.add_argument(
         "--no-large-tensor",
-        help="Some ops like Tile and ConstantOfShape can produce large tensor and make the model size much larger. Specifying this flag to skip folding these ops, with loss of some optimization chances. It can be followed with a threshold, for example, --no-large-tensor 1M or --no-large-tensor 100KB.",
+        help="Some ops like Tile and ConstantOfShape can produce large tensor and make the model size much larger. Specifying this flag to skip folding these ops, with loss of some optimization chances. It can be followed with a threshold, for example, --no-large-tensor 1M or --no-large-tensor 100KB. A simple '--no-large-tensor' means '--no-large-tensor 1KB'.",
         type=str,
         const='1KB',
         default=MAX_TENSOR_SIZE_THRESHOLD,
         nargs="?",
         dest="tensor_size_threshold",
     )
+    parser.add_argument(
+        "--mutable-initializer",
+        help="By ONNX specification, initializers can also serve as inputs. This allows users to overwrite their values during runtime, but some useful optimizations like fuse-conv-and-bn will not be applicable anymore. In almost all cases, having an initializer that is also an input is unintended (usually caused by a out-dated PyTorch). So onnxsim treats all initializers immutable to enabling all optimizations. If it is not wanted, you can specify '--mutable-initializer' to disable this behavior.",
+        action="store_true",
+        )
     parser.add_argument('-v', '--version', action='version', version='onnxsim ' + version.version)
 
     args = parser.parse_args()
@@ -440,6 +457,17 @@ def main():
                 )
                 break
 
+    if not args.mutable_initializer:
+        initializer_names = set([x.name for x in model.graph.initializer])
+        input_names = set([x.name for x in model.graph.input])
+        if len(initializer_names.intersection(input_names)) > 0:
+            print(
+                Text(
+                    'Your model contains initializers that are also inputs. This is usually caused by an out-dated PyTorch. onnxsim treats all initializers immutable to enabling all optimizations. If it is not wanted, please specify "--mutable-initializer" to disable this behavior.',
+                    style="bold magenta",
+                )
+            )
+
     input_tensors = None
     if args.input_data_path is not None:
         input_tensors = {}
@@ -466,6 +494,7 @@ def main():
         args.include_subgraph,
         args.unused_output,
         args.tensor_size_threshold,
+        args.mutable_initializer,
     )
 
     try:
