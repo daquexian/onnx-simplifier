@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Callable, Any, Optional
+from typing import Callable, Any, Optional, Tuple, Dict
 
 import onnx
 from rich.table import Table
@@ -31,13 +31,27 @@ class ModelInfo:
     4、compute density
     """
 
+    def get_info(self, graph: onnx.GraphProto) -> Tuple[Dict[str, int], int]:
+        op_nums = defaultdict(int)
+        model_size = 0
+        for node in graph.node:
+            op_nums[node.op_type] += 1
+            for attr in node.attribute:
+                sub_graphs = []
+                if attr.g is not None:
+                    sub_graphs.append(attr.g)
+                if attr.graphs is not None:
+                    sub_graphs.extend(attr.graphs)
+                for sub_graph in sub_graphs:
+                    sub_op_nums, sub_model_size = self.get_info(sub_graph)
+                    op_nums = defaultdict(int, {k: op_nums[k] + sub_op_nums[k] for k in set(op_nums) | set(sub_op_nums)})
+                    model_size += sub_model_size
+        op_nums["Constant"] += len(graph.initializer)
+        model_size += graph.ByteSize()
+        return op_nums, model_size
+
     def __init__(self, model: onnx.ModelProto):
-        self.op_nums = defaultdict(int)
-        # TODO: include ops in subgraph
-        for node in model.graph.node:
-            self.op_nums[node.op_type] += 1
-        self.op_nums["Constant"] += len(model.graph.initializer)
-        self.model_size = model.ByteSize()
+        self.op_nums, self.model_size = self.get_info(model.graph)
 
 
 def print_simplifying_info(model_ori: onnx.ModelProto, model_opt: onnx.ModelProto) -> None:
