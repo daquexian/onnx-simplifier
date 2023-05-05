@@ -67,8 +67,8 @@ onnxsim -h
 Or run in docker
 
 ```
-docker build -t onnx-simp .
-docker run --rm -it --entrypoint pytest onnx-simp
+docker build -t onnxsim .
+docker run --rm -it onnxsim -h
 ```
 
 ## Demonstration
