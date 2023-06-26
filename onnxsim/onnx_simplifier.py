@@ -54,7 +54,6 @@ def remove_unused_output(
     for graph_output in copy.deepcopy(model.graph.output):
         if graph_output.name in unused_output_names:
             model.graph.output.remove(graph_output)
-    onnx.checker.check_model(model)
     return model
 
 
@@ -63,7 +62,6 @@ def remove_initializer_from_input(model: onnx.ModelProto) -> onnx.ModelProto:
     for graph_input in copy.deepcopy(model.graph.input):
         if graph_input.name in initializer_names:
             model.graph.input.remove(graph_input)
-    onnx.checker.check_model(model)
     return model
 
 
