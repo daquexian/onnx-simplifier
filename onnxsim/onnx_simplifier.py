@@ -438,7 +438,7 @@ def main():
         sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_BASIC
         # To enable model serialization after graph optimization
         sess_options.optimized_model_filepath = tmp_file.name
-        _ = rt.InferenceSession(args.input_model, sess_options)
+        _ = rt.InferenceSession(args.input_model, sess_options, providers=["CPUExecutionProvider"])
 
         model = onnx.load(tmp_file.name)
     else:
