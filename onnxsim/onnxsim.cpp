@@ -243,6 +243,7 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
                                      const onnx::NodeProto& op) {
   std::vector<std::string> input_names;
   std::vector<onnx::TensorProto> input_tps;
+  std::set<std::string> initializer_names;
 
   onnx::ModelProto op_model;
   op_model.set_ir_version(model.ir_version());
@@ -260,9 +261,12 @@ std::vector<onnx::TensorProto> RunOp(onnx::ModelProto& model,
     if (input.empty()) {
       continue;
     }
-
+    if (initializer_names.find(input) != initializer_names.end()) {
+      continue;
+    }
     auto in_tp = FindInitializerByName(model, input);
     if (in_tp.dims().size() == 1 && in_tp.dims()[0] == 0) {
+      initializer_names.insert(input);
       *op_model.mutable_graph()->add_initializer() = in_tp;
       continue;
     }
