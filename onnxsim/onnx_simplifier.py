@@ -178,7 +178,7 @@ def simplify(
                     dim.dim_value = input_shape[i]
     if unused_output is not None:
         model = remove_unused_output(model, unused_output)
-    if not mutable_initializer:
+    if not mutable_initializer and model.ir_version >= 4:
         model = remove_initializer_from_input(model)
 
     # https://stackoverflow.com/a/60708339
