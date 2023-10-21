@@ -210,7 +210,7 @@ def simplify(
             model_opt, model, check_n, test_input_shapes, input_data, custom_lib
         )
     except ValueError:
-        print("Simplified model larger than 2GB. Trying to save as external data...")
+        print("[bold magenta]Simplified model larger than 2GB. Trying to save as external data...[/bold magenta]")
         # large models try to convert through a temporary file
         with tempfile.TemporaryDirectory() as tmpdirname:
             onnx.save(
@@ -363,6 +363,11 @@ def main():
         help="By ONNX specification, initializers can also serve as inputs. This allows users to overwrite their values during runtime, but some useful optimizations like fuse-conv-and-bn will not be applicable anymore. In almost all cases, having an initializer that is also an input is unintended (usually caused by a out-dated PyTorch). So onnxsim treats all initializers immutable to enabling all optimizations. If it is not wanted, you can specify '--mutable-initializer' to disable this behavior.",
         action="store_true",
         )
+    parser.add_argument(
+        "--save-as-external-data",
+        help="Save parameters as external data. This will make the .onnx file much smaller, but the .onnx file will depend on the external data file (.data).",
+        action="store_true",
+        )
     parser.add_argument('-v', '--version', action='version', version='onnxsim ' + version.version)
 
     args = parser.parse_args()
@@ -501,15 +506,22 @@ def main():
     )
 
     try:
-        onnx.save(model_opt, args.output_model)
+        if not args.save_as_external_data:
+            onnx.save(model_opt, args.output_model)
+        else:
+            raise ValueError("save_as_external_data")
     except ValueError:
-        # large models
+        # large models (>2GB) which onnx.save doesn't support,
+        # or explicitly specified --save-as-external-data
+        external_data_path = os.path.basename(args.output_model) + '.data'
+        if os.path.exists(external_data_path):
+            os.remove(external_data_path)
         onnx.save(
             copy.deepcopy(model_opt),
             args.output_model,
             save_as_external_data=True,
             all_tensors_to_one_file=True,
-            location=os.path.basename(args.output_model) + '.data',
+            location=external_data_path,
         )
 
     if check_ok:
