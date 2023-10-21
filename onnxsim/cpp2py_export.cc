@@ -79,11 +79,11 @@ PYBIND11_MODULE(onnxsim_cpp2py_export, m) {
            [](const std::string& in_path, const std::string& out_path,
               std::optional<std::vector<std::string>> skip_optimizers,
               bool constant_folding, bool shape_inference,
-              bool allow_large_tensor) -> bool {
+              size_t tensor_size_threshold) -> bool {
              // force env initialization to register opset
              InitEnv();
              SimplifyPath(in_path, out_path, skip_optimizers, constant_folding,
-                          shape_inference, allow_large_tensor);
+                          shape_inference, tensor_size_threshold);
              return true;
            })
       .def("_set_model_executor",

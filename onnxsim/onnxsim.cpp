@@ -438,7 +438,7 @@ std::function<T(const T&)> FixedPointFn(const std::function<T(const T&)>& f1,
   return [f1, f2, max_iters, converged](const T& x) {
     size_t _max_iters = max_iters;
     T tmp1 = f1(x);
-    T tmp2 = f2(x);
+    T tmp2 = f2(tmp1);
     T& y1 = tmp1;
     T& y2 = tmp2;
     while (_max_iters-- > 0) {

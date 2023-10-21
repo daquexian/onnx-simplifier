@@ -124,6 +124,7 @@ dmypy.json
 
 .idea/
 *.onnx
+*.onnx.data
 
 compile_commands.json
 temp*.py

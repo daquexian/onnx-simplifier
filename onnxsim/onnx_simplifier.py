@@ -94,7 +94,7 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: Optional
 
 
 # A very very large threshold
-MAX_TENSOR_SIZE_THRESHOLD = '10GB'
+DEFAULT_TENSOR_SIZE_THRESHOLDHOLD = '1.5GB'
 
 
 def simplify(
@@ -112,7 +112,7 @@ def simplify(
     custom_lib: Optional[str] = None,
     include_subgraph: bool = False,
     unused_output: Optional[Sequence[str]] = None,
-    tensor_size_threshold: str = MAX_TENSOR_SIZE_THRESHOLD,
+    tensor_size_threshold: str = DEFAULT_TENSOR_SIZE_THRESHOLDHOLD,
     mutable_initializer: bool = False,
     *,
     input_shapes=None,
@@ -191,6 +191,8 @@ def simplify(
         return int(float(number)*units[unit])
 
     tensor_size_threshold = parse_size(tensor_size_threshold)
+    if tensor_size_threshold > 2**31 - 9999:
+        raise ValueError("tensor_size_threshold should be less than 2GB")
 
     try:
         model_bytes = model.SerializeToString()
@@ -201,11 +203,14 @@ def simplify(
             not skip_shape_inference,
             tensor_size_threshold,
         )
+        if len(model_opt_bytes) == 0:
+            raise ValueError("Simplified model larger than 2GB")
         model_opt = onnx.load_from_string(model_opt_bytes)
         check_ok = model_checking.compare(
             model_opt, model, check_n, test_input_shapes, input_data, custom_lib
         )
     except ValueError:
+        print("Simplified model larger than 2GB. Trying to save as external data...")
         # large models try to convert through a temporary file
         with tempfile.TemporaryDirectory() as tmpdirname:
             onnx.save(
@@ -349,7 +354,7 @@ def main():
         help="Some ops like Tile and ConstantOfShape can produce large tensor and make the model size much larger. Specifying this flag to skip folding these ops, with loss of some optimization chances. It can be followed with a threshold, for example, --no-large-tensor 1M or --no-large-tensor 100KB. A simple '--no-large-tensor' means '--no-large-tensor 1KB'.",
         type=str,
         const='1KB',
-        default=MAX_TENSOR_SIZE_THRESHOLD,
+        default=DEFAULT_TENSOR_SIZE_THRESHOLDHOLD,
         nargs="?",
         dest="tensor_size_threshold",
     )
@@ -444,7 +449,7 @@ def main():
     else:
         model = onnx.load(args.input_model)
 
-    if args.tensor_size_threshold == MAX_TENSOR_SIZE_THRESHOLD:
+    if args.tensor_size_threshold == DEFAULT_TENSOR_SIZE_THRESHOLDHOLD:
         for node in model.graph.node:
             if node.op_type in ["Tile", "ConstantOfShape"]:
                 print(
