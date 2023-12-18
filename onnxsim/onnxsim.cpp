@@ -415,13 +415,13 @@ onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
   {
     onnx::ModelProto model;
     model.CopyFrom(tmp);
-    const auto [const_nodes, non_const_nodes] = GetConstantNodes(model);
+    auto [const_nodes, non_const_nodes] = GetConstantNodes(model);
     for (const auto& x : const_nodes) {
       try {
         RunOpAndAddInitializer(model, x);
       } catch (const std::exception& e) {
-        std::cerr << "WARNING: failed to run \"" << node.op_type() <<
-          "\" op (name is \"" << node.name << "\"), skip..." << std::endl;
+        std::cerr << "WARNING: failed to run \"" << x.op_type() <<
+          "\" op (name is \"" << x.name << "\"), skip..." << std::endl;
         non_const_nodes.push_back(x);
       }
     }
