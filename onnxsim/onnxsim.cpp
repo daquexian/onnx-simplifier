@@ -421,7 +421,7 @@ onnx::ModelProto _FoldConstant(const onnx::ModelProto& model) {
         RunOpAndAddInitializer(model, x);
       } catch (const std::exception& e) {
         std::cerr << "WARNING: failed to run \"" << x.op_type() <<
-          "\" op (name is \"" << x.name << "\"), skip..." << std::endl;
+          "\" op (name is \"" << x.name() << "\"), skip..." << std::endl;
         non_const_nodes.push_back(x);
       }
     }
