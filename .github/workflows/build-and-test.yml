@@ -13,7 +13,7 @@ jobs:
       CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
       CIBW_ENVIRONMENT_PASS_LINUX: ONNXSIM_CI
       CIBW_BEFORE_ALL_LINUX: WD=`pwd` && /opt/python/cp38-cp38/bin/python -m pip install --target tmp_cmake cmake && cp tmp_cmake/bin/cmake /usr/local/bin/cmake && rm -rf tmp_cmake && /opt/python/cp38-cp38/bin/python -m pip install cmake && cmake --version && whereis cmake
-      CIBW_BEFORE_ALL_MACOS: WD=`pwd` && pip install cmake
+      CIBW_BEFORE_ALL_MACOS: WD=`pwd` && python3 -m pip install cmake
       CIBW_TEST_REQUIRES_LINUX: pytest flake8 onnxruntime 
       CIBW_TEST_REQUIRES_MACOS: pytest onnxruntime 
       CIBW_TEST_REQUIRES_WINDOWS: pytest onnxruntime 
