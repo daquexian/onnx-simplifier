@@ -48,7 +48,6 @@ We have published ONNX Simplifier on [convertmodel.com](https://www.convertmodel
 
 ### Python version
 
-
 ```
 pip3 install -U pip && pip3 install onnxsim
 ```
@@ -63,6 +62,13 @@ For more advanced features, try the following command for help message
 
 ```
 onnxsim -h
+```
+
+Or run in docker
+
+```
+docker build -t onnxsim .
+docker run --rm -it onnxsim -h
 ```
 
 ## Demonstration
