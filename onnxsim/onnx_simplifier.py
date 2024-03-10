@@ -261,6 +261,7 @@ class PyModelExecutor(C.ModelExecutor):
         run_options = rt.RunOptions()
         run_options.log_severity_level = 3
         output_arrs = sess.run(output_names, inputs, run_options=run_options)
+        output_arrs = [x if isinstance(x, np.ndarray) else np.array([]) for x in output_arrs]
         return [
             onnx.numpy_helper.from_array(x).SerializeToString() for x in output_arrs
         ]
