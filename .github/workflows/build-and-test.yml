@@ -39,6 +39,7 @@ jobs:
         submodules: recursive
         fetch-depth: 0
     - name: install qemu
+      if: runner.os == 'Linux'
       uses: docker/setup-qemu-action@v2
     - name: Build onnxsim wheels
       uses: pypa/cibuildwheel@v2.16.5
