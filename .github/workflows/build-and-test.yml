@@ -1,6 +1,6 @@
 name: Build and Test
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 env:
   ONNXSIM_CI: 1
 
@@ -10,13 +10,14 @@ jobs:
       # Only build universal2 package
       # Related issue: https://github.com/pypa/cibuildwheel/issues/1190
       CIBW_ARCHS_MACOS: universal2
+      CIBW_ARCHS_LINUX: "auto aarch64"
       CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
       CIBW_ENVIRONMENT_PASS_LINUX: ONNXSIM_CI
       CIBW_BEFORE_ALL_LINUX: WD=`pwd` && /opt/python/cp38-cp38/bin/python -m pip install --target tmp_cmake cmake && cp tmp_cmake/bin/cmake /usr/local/bin/cmake && rm -rf tmp_cmake && /opt/python/cp38-cp38/bin/python -m pip install cmake && cmake --version && whereis cmake
       CIBW_BEFORE_ALL_MACOS: WD=`pwd` && python3 -m pip install cmake
-      CIBW_TEST_REQUIRES_LINUX: pytest flake8 onnxruntime 
-      CIBW_TEST_REQUIRES_MACOS: pytest onnxruntime 
-      CIBW_TEST_REQUIRES_WINDOWS: pytest onnxruntime 
+      CIBW_TEST_REQUIRES_LINUX: pytest flake8 onnxruntime
+      CIBW_TEST_REQUIRES_MACOS: pytest onnxruntime
+      CIBW_TEST_REQUIRES_WINDOWS: pytest onnxruntime
       CIBW_BEFORE_TEST_LINUX: pip install torch==1.13.1+cpu torchvision==0.14.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
       CIBW_BEFORE_TEST_MACOS: pip install torch torchvision
       CIBW_BEFORE_TEST_WINDOWS: pip install torch torchvision
@@ -33,10 +34,13 @@ jobs:
       matrix:
         os: [ubuntu-20.04, windows-2019, macos-11]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
         fetch-depth: 0
+    - name: install qemu
+      if: runner.os == 'Linux'
+      uses: docker/setup-qemu-action@v3
     - name: Build onnxsim wheels
       uses: pypa/cibuildwheel@v2.16.5
       env:
@@ -48,7 +52,7 @@ jobs:
         # set ONNXSIM_PKG_NAME to onnx-simplifier
         CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
         CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: python-dist
         path: ./wheelhouse/*.whl
@@ -57,7 +61,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
         fetch-depth: 0
@@ -87,7 +91,7 @@ jobs:
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnx-simplifier
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: python-dist
         path: dist/*.tar.gz
@@ -97,7 +101,7 @@ jobs:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         # unpacks python-dist artifact into dist/
         # if `name: python-dist` is omitted, the action will create extra parent dir
@@ -120,7 +124,7 @@ jobs:
     name: Build WebAssembly
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
     - uses: mymindstorm/setup-emsdk@v11
@@ -131,7 +135,7 @@ jobs:
     - name: Build
       run: ./build_wasm.sh
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: wasm
         path: |
@@ -148,7 +152,7 @@ jobs:
         echo "endpoint=oss-cn-beijing.aliyuncs.com" >> ~/.ossutilconfig
         echo "accessKeyID=${{ secrets.OSS_ACCESS_KEY }}" >> ~/.ossutilconfig
         echo "accessKeySecret=${{ secrets.OSS_SECRET_KEY }}" >> ~/.ossutilconfig
-        
+
         gzip -c -9 build-wasm-node-OFF/onnxsim.wasm > onnxsim_gz.wasm
         ./ossutil64 --config-file ~/.ossutilconfig cp -u onnxsim_gz.wasm oss://converter-web/onnxsim.wasm --meta=Content-Type:application/wasm#Content-Encoding:gzip
         ./ossutil64 --config-file ~/.ossutilconfig cp -u build-wasm-node-OFF/onnxsim.js oss://converter-web/
@@ -157,7 +161,7 @@ jobs:
     name: Build WebAssembly with NODERAWFS
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
     - uses: mymindstorm/setup-emsdk@v11
@@ -168,7 +172,7 @@ jobs:
     - name: Build
       run: ./build_wasm.sh ON
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: wasm-with-noderawfs
         path: |
@@ -179,7 +183,7 @@ jobs:
     name: Build Native
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
     - uses: seanmiddleditch/gha-setup-ninja@v3
@@ -191,7 +195,7 @@ jobs:
         cmake -GNinja ..
         ninja onnxsim_bin
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: native
         path: |
