@@ -10,10 +10,10 @@ jobs:
       # Only build universal2 package
       # Related issue: https://github.com/pypa/cibuildwheel/issues/1190
       CIBW_ARCHS_MACOS: universal2
-      CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+      CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
       CIBW_ENVIRONMENT_PASS_LINUX: ONNXSIM_CI
       CIBW_BEFORE_ALL_LINUX: WD=`pwd` && /opt/python/cp38-cp38/bin/python -m pip install --target tmp_cmake cmake && cp tmp_cmake/bin/cmake /usr/local/bin/cmake && rm -rf tmp_cmake && /opt/python/cp38-cp38/bin/python -m pip install cmake && cmake --version && whereis cmake
-      CIBW_BEFORE_ALL_MACOS: WD=`pwd` && python3 -m pip install cmake
+      CIBW_BEFORE_ALL_MACOS: WD=`pwd` && pip install cmake
       CIBW_TEST_REQUIRES_LINUX: pytest flake8 onnxruntime 
       CIBW_TEST_REQUIRES_MACOS: pytest onnxruntime 
       CIBW_TEST_REQUIRES_WINDOWS: pytest onnxruntime 
@@ -80,10 +80,10 @@ jobs:
         # It's important to leave the project directory where a 'onnxsim' subdirectory exists
         cd dist
         python3 -m pip install onnxruntime
-        python3 -m pip install dist/onnxsim-*.tar.gz
+        python3 -m pip install onnxsim-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnxsim
-        python3 -m pip install dist/onnx-simplifier-*.tar.gz
+        python3 -m pip install onnx-simplifier-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnx-simplifier
 
@@ -127,6 +127,8 @@ jobs:
     - name: Verify
       run: emcc -v
 
+    - run: sudo apt install protobuf
+
     - name: Build
       run: ./build_wasm.sh
 
@@ -162,6 +164,8 @@ jobs:
     - uses: mymindstorm/setup-emsdk@v14
     - name: Verify
       run: emcc -v
+
+    - run: sudo apt install protobuf
 
     - name: Build
       run: ./build_wasm.sh ON
