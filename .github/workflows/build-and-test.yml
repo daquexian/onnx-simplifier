@@ -57,7 +57,7 @@ jobs:
         CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
     - uses: actions/upload-artifact@v4
       with:
-        name: python-dist
+        name: python-dist-${{ matrix.os }}
         path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -96,7 +96,7 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: python-dist
+        name: python-dist-sdist
         path: dist/*.tar.gz
 
   upload_pypi:
@@ -108,7 +108,7 @@ jobs:
       with:
         # unpacks python-dist artifact into dist/
         # if `name: python-dist` is omitted, the action will create extra parent dir
-        name: python-dist
+        pattern: python-dist-*
         path: dist
     - name: Publish distribution 📦 to Test PyPI
       if: ${{ github.ref == 'refs/heads/master' }}
