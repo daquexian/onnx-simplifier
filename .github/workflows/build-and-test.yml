@@ -31,7 +31,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-11]
+        os: [ubuntu-24.04, windows-2025, macos-15]
     steps:
     - uses: actions/checkout@v4
       with:
