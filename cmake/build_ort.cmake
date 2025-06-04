@@ -19,8 +19,10 @@ else()
   # For native build, only shared libs is ok. Otherwise libonnx.a will be linked twice (in onnxruntime and in onnxsim)
   # For emscripten build, since the libonnxruntime_webassembly.a is bundled by `bundle_static_library`, onnxsim can link
   # to the single libonnxruntime_webassembly.a
-  set(BUILD_SHARED_LIBS ON)
   option(onnxruntime_BUILD_SHARED_LIB "" ON)
 endif()
 add_subdirectory(third_party/onnxruntime/cmake)
 
+if (NOT EMSCRIPTEN)
+  set(BUILD_SHARED_LIBS ON)
+endif()
