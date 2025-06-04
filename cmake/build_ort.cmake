@@ -12,6 +12,7 @@ if (EMSCRIPTEN)
   option(onnxruntime_ENABLE_WEBASSEMBLY_THREADS "" OFF)
   option(onnxruntime_BUILD_UNIT_TESTS "" OFF)
   set(onnxruntime_EMSCRIPTEN_SETTINGS "MALLOC=dlmalloc")
+  set(onnxruntime_ENABLE_WEBASSEMBLY_THREADS ON)
 
   # For custom onnx target in onnx optimizer
   set(ONNX_TARGET_NAME onnxruntime_webassembly)
