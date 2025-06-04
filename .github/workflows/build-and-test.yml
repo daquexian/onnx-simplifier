@@ -80,10 +80,10 @@ jobs:
         # It's important to leave the project directory where a 'onnxsim' subdirectory exists
         cd dist
         python3 -m pip install onnxruntime
-        python3 -m pip install onnxsim-*.tar.gz
+        python3 -m pip install dist/onnxsim-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnxsim
-        python3 -m pip install onnx-simplifier-*.tar.gz
+        python3 -m pip install dist/onnx-simplifier-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnx-simplifier
 
