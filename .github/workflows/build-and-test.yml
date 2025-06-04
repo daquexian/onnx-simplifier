@@ -1,6 +1,12 @@
 name: Build and Test
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
 env:
   ONNXSIM_CI: 1
 
@@ -127,7 +133,9 @@ jobs:
     - name: Verify
       run: emcc -v
 
-    - run: sudo apt install protobuf
+    - run: |
+        sudo apt update
+        sudo apt install protobuf
 
     - name: Build
       run: ./build_wasm.sh
@@ -165,7 +173,9 @@ jobs:
     - name: Verify
       run: emcc -v
 
-    - run: sudo apt install protobuf
+    - run: |
+        sudo apt update
+        sudo apt install protobuf
 
     - name: Build
       run: ./build_wasm.sh ON
