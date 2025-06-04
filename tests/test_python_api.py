@@ -296,7 +296,7 @@ def test_unset_optional_input():
 
     opset_imports = [onnx.helper.make_opsetid("", 14)]
     
-    model = onnx.helper.make_model(graph_def, opset_imports=opset_imports)
+    model = onnx.helper.make_model(graph_def, opset_imports=opset_imports, ir_version=10)
     sim_model, check_ok = onnxsim.simplify(model, check_n=3)
     assert check_ok
     assert len(model.graph.node) == 1
