@@ -89,7 +89,7 @@ jobs:
         python3 -m pip install onnxsim-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnxsim
-        python3 -m pip install onnx-simplifier-*.tar.gz
+        python3 -m pip install onnx_simplifier-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnx-simplifier
 
