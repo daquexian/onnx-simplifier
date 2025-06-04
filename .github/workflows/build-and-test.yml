@@ -34,7 +34,7 @@ jobs:
       CIBW_BUILD: "cp38-* cp310-* cp312-*"
       CIBW_SKIP: "cp36-* *-win32 *-manylinux_i686 *-musllinux_*"
       MACOSX_DEPLOYMENT_TARGET: "10.15"
-    name: Build wheels on ${{ matrix.os }}
+    name: Build wheel ${{ matrix.name }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
