@@ -105,6 +105,7 @@ jobs:
         # if `name: python-dist` is omitted, the action will create extra parent dir
         pattern: python-dist-*
         path: dist
+        merge-multiple: true
     - name: Publish distribution 📦 to Test PyPI
       if: ${{ github.ref == 'refs/heads/master' }}
       uses: pypa/gh-action-pypi-publish@v1.12.4
