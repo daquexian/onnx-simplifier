@@ -1,6 +1,12 @@
 name: Build and Test
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
 env:
   ONNXSIM_CI: 1
 
@@ -10,14 +16,14 @@ jobs:
       # Only build universal2 package
       # Related issue: https://github.com/pypa/cibuildwheel/issues/1190
       CIBW_ARCHS_MACOS: universal2
-      CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+      CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
       CIBW_ENVIRONMENT_PASS_LINUX: ONNXSIM_CI
       CIBW_BEFORE_ALL_LINUX: WD=`pwd` && /opt/python/cp38-cp38/bin/python -m pip install --target tmp_cmake cmake && cp tmp_cmake/bin/cmake /usr/local/bin/cmake && rm -rf tmp_cmake && /opt/python/cp38-cp38/bin/python -m pip install cmake && cmake --version && whereis cmake
-      CIBW_BEFORE_ALL_MACOS: WD=`pwd` && python3 -m pip install cmake
+      CIBW_BEFORE_ALL_MACOS: WD=`pwd` && pip install cmake
       CIBW_TEST_REQUIRES_LINUX: pytest flake8 onnxruntime 
       CIBW_TEST_REQUIRES_MACOS: pytest onnxruntime 
       CIBW_TEST_REQUIRES_WINDOWS: pytest onnxruntime 
-      CIBW_BEFORE_TEST_LINUX: pip install torch==1.13.1+cpu torchvision==0.14.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+      CIBW_BEFORE_TEST_LINUX: pip install torch==2.2.0+cpu torchvision==0.17.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
       CIBW_BEFORE_TEST_MACOS: pip install torch torchvision
       CIBW_BEFORE_TEST_WINDOWS: pip install torch torchvision
       # Skip arm test on x86. Skip python 3.11 test because of the absense of torchvision binary wheel
@@ -25,39 +31,35 @@ jobs:
       CIBW_TEST_SKIP: "cp37-* cp311-* *_arm64 *_universal2:arm64"
       CIBW_TEST_COMMAND: pytest -v {project}/tests/test_python_api.py
       # Only build on Python 3 and skip 32-bit or musl builds
-      CIBW_BUILD: "cp3?-* cp310-* cp311-*"
+      CIBW_BUILD: "cp38-* cp310-* cp312-*"
       CIBW_SKIP: "cp36-* *-win32 *-manylinux_i686 *-musllinux_*"
-    name: Build wheels on ${{ matrix.os }}
+      MACOSX_DEPLOYMENT_TARGET: "10.15"
+    name: Build wheel ${{ matrix.name }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-11]
+        os: [ubuntu-24.04, windows-2025, macos-15]
+        name: [onnxsim, onnx-simplifier]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
         fetch-depth: 0
     - name: Build onnxsim wheels
-      uses: pypa/cibuildwheel@v2.16.5
+      uses: pypa/cibuildwheel@v2.23.3
       env:
-        CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnxsim
-        CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnxsim
-    - name: Build onnx-simplifier wheels
-      uses: pypa/cibuildwheel@v2.16.5
-      env:
-        # set ONNXSIM_PKG_NAME to onnx-simplifier
-        CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
-        CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=onnx-simplifier
-    - uses: actions/upload-artifact@v3
+        CIBW_ENVIRONMENT: CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5" ONNXSIM_PKG_NAME=${{ matrix.name }}
+        CIBW_ENVIRONMENT_WINDOWS: USE_MSVC_STATIC_RUNTIME=0 CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" ONNXSIM_PKG_NAME=${{ matrix.name }}
+    - uses: actions/upload-artifact@v4
       with:
-        name: python-dist
+        name: python-dist-${{ matrix.os }}-${{ matrix.name }}
         path: ./wheelhouse/*.whl
 
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
         fetch-depth: 0
@@ -83,13 +85,13 @@ jobs:
         python3 -m pip install onnxsim-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnxsim
-        python3 -m pip install onnx-simplifier-*.tar.gz
+        python3 -m pip install onnx_simplifier-*.tar.gz
         python3 -c "import onnxsim; print(dir(onnxsim))"
         python3 -m pip uninstall -y onnx-simplifier
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
-        name: python-dist
+        name: python-dist-sdist
         path: dist/*.tar.gz
 
   upload_pypi:
@@ -97,11 +99,11 @@ jobs:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         # unpacks python-dist artifact into dist/
         # if `name: python-dist` is omitted, the action will create extra parent dir
-        name: python-dist
+        pattern: python-dist-*
         path: dist
     - name: Publish distribution 📦 to Test PyPI
       if: ${{ github.ref == 'refs/heads/master' }}
@@ -120,18 +122,21 @@ jobs:
     name: Build WebAssembly
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - uses: mymindstorm/setup-emsdk@v11
-    - uses: seanmiddleditch/gha-setup-ninja@v3
+    - uses: mymindstorm/setup-emsdk@v14
     - name: Verify
       run: emcc -v
+
+    - run: |
+        sudo apt update
+        sudo apt install protobuf-compiler
 
     - name: Build
       run: ./build_wasm.sh
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: wasm
         path: |
@@ -157,18 +162,21 @@ jobs:
     name: Build WebAssembly with NODERAWFS
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - uses: mymindstorm/setup-emsdk@v11
-    - uses: seanmiddleditch/gha-setup-ninja@v3
+    - uses: mymindstorm/setup-emsdk@v14
     - name: Verify
       run: emcc -v
+
+    - run: |
+        sudo apt update
+        sudo apt install protobuf-compiler
 
     - name: Build
       run: ./build_wasm.sh ON
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: wasm-with-noderawfs
         path: |
@@ -179,10 +187,9 @@ jobs:
     name: Build Native
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - uses: seanmiddleditch/gha-setup-ninja@v3
 
     - name: Build
       run: |
@@ -191,7 +198,7 @@ jobs:
         cmake -GNinja ..
         ninja onnxsim_bin
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: native
         path: |
